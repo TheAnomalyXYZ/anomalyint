@@ -26,6 +26,7 @@ import {
   Clock,
   Tag,
   ArrowRight,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { AgentRunner } from "../../api/agentRunner";
@@ -118,24 +119,28 @@ export function AgentDetailsModal({
         throw new Error(result.error || 'Failed to generate questions');
       }
 
-      if (!result.questions || result.questions.length === 0) {
-        throw new Error('No questions were generated');
-      }
-
-      // Reload questions from database to show the newly generated questions
-      await loadQuestions();
-
+      // Agent returned 200 success, questions will appear in database after a delay
       setIsRunning(false);
       onRunAgent?.(agent.id);
 
-      const count = result.questions.length;
-      toast.success(`${count} ${count === 1 ? 'question' : 'questions'} generated and saved to database!`);
+      toast.success(`Agent executed successfully! Questions are being generated...`);
+
+      // Wait 1 second for questions to appear in database, then reload
+      setTimeout(async () => {
+        await loadQuestions();
+        toast.success(`Questions refreshed from database`);
+      }, 1000);
 
     } catch (error) {
       console.error('Error generating questions:', error);
       setIsRunning(false);
       toast.error(error instanceof Error ? error.message : "Failed to generate questions");
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadQuestions();
+    toast.success('Questions refreshed');
   };
 
   const handleEdit = () => {
@@ -283,10 +288,16 @@ export function AgentDetailsModal({
                 <h2 className="text-xl">🔥 Generated Questions</h2>
                 <Badge variant="secondary">{generatedQuestions.length}</Badge>
               </div>
-              <Button variant="ghost" size="sm" onClick={handleViewAll}>
-                View All
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={handleRefresh}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleViewAll}>
+                  View All
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
             </div>
 
             {/* Full width questions list */}
