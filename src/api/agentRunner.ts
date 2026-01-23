@@ -99,16 +99,32 @@ export class AgentRunner {
         url.searchParams.append(key, value);
       });
 
+      console.log(`[AgentRunner] Request body:`, JSON.stringify(requestBody, null, 2));
+
       // Call the API
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
+      let response;
+      try {
+        response = await fetch(url.toString(), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+      } catch (fetchError) {
+        console.error(`[AgentRunner] Fetch error:`, fetchError);
+        return {
+          success: false,
+          questions: [],
+          error: `Failed to fetch: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
+        };
+      }
+
+      console.log(`[AgentRunner] Response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[AgentRunner] API error response:`, errorText);
         return {
           success: false,
           questions: [],
