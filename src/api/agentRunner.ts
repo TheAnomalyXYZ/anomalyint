@@ -55,9 +55,10 @@ export class AgentRunner {
         apiEndpoint = redditSource.config.apiEndpoint;
         queryParams['subreddit'] = redditSource.config.subreddit;
         configUrl = redditSource.config.url;
-      } else if (xSource?.config?.apiEndpoint && xSource?.config?.url) {
+      } else if (xSource?.config?.url) {
         // X source: use the API endpoint with URL as config_url
-        apiEndpoint = xSource.config.apiEndpoint;
+        // Use stored endpoint or fallback to default
+        apiEndpoint = xSource.config.apiEndpoint || 'https://theanomaly.app.n8n.cloud/webhook/get-user-tweet-filter';
         configUrl = xSource.config.url;
       } else if (apiSource?.config?.apiEndpoint) {
         // Regular API source
