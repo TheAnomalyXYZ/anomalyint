@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { Agent, Question } from './types';
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
