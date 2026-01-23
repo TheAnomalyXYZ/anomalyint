@@ -125,11 +125,11 @@ export function AgentDetailsModal({
 
       toast.success(`Agent executed successfully! Questions are being generated...`);
 
-      // Wait 1 second for questions to appear in database, then reload
+      // Wait 5 seconds for questions to appear in database, then reload
       setTimeout(async () => {
         await loadQuestions();
         toast.success(`Questions refreshed from database`);
-      }, 1000);
+      }, 5000);
 
     } catch (error) {
       console.error('Error generating questions:', error);
