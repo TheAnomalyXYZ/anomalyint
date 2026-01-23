@@ -55,6 +55,7 @@ export function AddAgentModal({
   const [newSourceType, setNewSourceType] = useState<AgentSourceType | "">("");
   const [newSourceConfig, setNewSourceConfig] = useState("");
   const [redditApiEndpoint, setRedditApiEndpoint] = useState("https://theanomaly.app.n8n.cloud/webhook/subreddit");
+  const [xApiEndpoint, setXApiEndpoint] = useState("https://theanomaly.app.n8n.cloud/webhook/get-user-tweet-filter");
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const handleAddSource = () => {
@@ -74,6 +75,7 @@ export function AddAgentModal({
         break;
       case 'x':
         config.url = newSourceConfig;
+        config.apiEndpoint = xApiEndpoint;
         break;
       case 'reddit':
         config.subreddit = newSourceConfig;
@@ -361,6 +363,25 @@ export function AddAgentModal({
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     The API endpoint that accepts the subreddit as a query parameter
+                  </p>
+                </div>
+              )}
+
+              {/* X API Endpoint Configuration */}
+              {newSourceType === "x" && (
+                <div className="mt-2">
+                  <Label htmlFor="x-api" className="text-xs text-muted-foreground">
+                    X API Endpoint
+                  </Label>
+                  <Input
+                    id="x-api"
+                    value={xApiEndpoint}
+                    onChange={(e) => setXApiEndpoint(e.target.value)}
+                    placeholder="https://theanomaly.app.n8n.cloud/webhook/get-user-tweet-filter"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    The API endpoint that fetches and filters user tweets
                   </p>
                 </div>
               )}
