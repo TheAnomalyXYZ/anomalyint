@@ -126,6 +126,7 @@ export interface Agent {
   categories: string[];
   sources: AgentSource[];
   questionPrompt: string;
+  secondFilterPrompt?: string;
   resolutionPrompt?: string;
   baseModel: string;
   frequency: AgentFrequency;

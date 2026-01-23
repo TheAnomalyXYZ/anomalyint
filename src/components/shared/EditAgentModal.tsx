@@ -47,6 +47,7 @@ export function EditAgentModal({
   const [newCategory, setNewCategory] = useState("");
   const [sources, setSources] = useState<AgentSource[]>([]);
   const [questionPrompt, setQuestionPrompt] = useState("");
+  const [secondFilterPrompt, setSecondFilterPrompt] = useState("");
   const [resolutionPrompt, setResolutionPrompt] = useState("");
   const [baseModel, setBaseModel] = useState("chatgpt-4o-latest");
   const [frequency, setFrequency] = useState<AgentFrequency>("on_update");
@@ -64,6 +65,7 @@ export function EditAgentModal({
       setCategories(agent.categories || []);
       setSources(agent.sources || []);
       setQuestionPrompt(agent.questionPrompt || "");
+      setSecondFilterPrompt(agent.secondFilterPrompt || "");
       setResolutionPrompt(agent.resolutionPrompt || "");
       setBaseModel(agent.baseModel || "chatgpt-4o-latest");
       setFrequency(agent.frequency || "on_update");
@@ -146,6 +148,7 @@ export function EditAgentModal({
       categories,
       sources,
       questionPrompt,
+      secondFilterPrompt: secondFilterPrompt || undefined,
       resolutionPrompt: resolutionPrompt || undefined,
       baseModel,
       frequency,
@@ -389,14 +392,26 @@ export function EditAgentModal({
             </div>
           </div>
 
-          {/* Question Generation Prompt */}
+          {/* Filter Prompt */}
           <div>
-            <Label htmlFor="questionPrompt">Question Generation Prompt *</Label>
+            <Label htmlFor="questionPrompt">Filter Prompt *</Label>
             <Textarea
               id="questionPrompt"
               value={questionPrompt}
               onChange={(e) => setQuestionPrompt(e.target.value)}
               placeholder="e.g., Create a question based on Elon Musk's latest tweet"
+              className="mt-2 min-h-[100px]"
+            />
+          </div>
+
+          {/* Second Filter Prompt */}
+          <div>
+            <Label htmlFor="secondFilterPrompt">Second Filter Prompt</Label>
+            <Textarea
+              id="secondFilterPrompt"
+              value={secondFilterPrompt}
+              onChange={(e) => setSecondFilterPrompt(e.target.value)}
+              placeholder="e.g., Additional filtering criteria"
               className="mt-2 min-h-[100px]"
             />
           </div>
