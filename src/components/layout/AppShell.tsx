@@ -51,7 +51,7 @@ const navigation = [
     label: "Main",
     items: [
       { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/overview" },
-      { id: "markets", label: "Markets", icon: Sparkles, path: "/markets" },
+      { id: "markets", label: "Pulse", icon: Sparkles, path: "/markets" },
       { id: "resolve", label: "Resolve Markets", icon: Target, path: "/resolve" },
       { id: "answers", label: "Market History", icon: MessageSquare, path: "/answers" },
       { id: "agents", label: "AI Agents", icon: Bot, path: "/agents" },
@@ -78,7 +78,7 @@ export function AppShell({ children }: AppShellProps) {
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm">Predictive Markets</h2>
+              <h2 className="text-sm">Intelligence Guild</h2>
               <p className="text-xs text-muted-foreground">AI Dashboard</p>
             </div>
           </div>
