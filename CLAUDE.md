@@ -44,7 +44,7 @@ src/
 
 ### Navigation & Routing
 The app uses client-side routing via React state managed in `App.tsx`. The main navigation structure includes:
-- **Main**: Overview, Markets, Resolve Markets, Market History, AI Agents
+- **Main**: Overview, Pulse, Market History, AI Agents
 - **Admin**: Reports, Settings
 - **Source Settings**: Twitter, News, Telegram, Discord, Reddit
 

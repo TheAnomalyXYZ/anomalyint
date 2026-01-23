@@ -52,7 +52,6 @@ const navigation = [
     items: [
       { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/overview" },
       { id: "markets", label: "Pulse", icon: Sparkles, path: "/markets" },
-      { id: "resolve", label: "Resolve Markets", icon: Target, path: "/resolve" },
       { id: "answers", label: "Market History", icon: MessageSquare, path: "/answers" },
       { id: "agents", label: "AI Agents", icon: Bot, path: "/agents" },
     ],
