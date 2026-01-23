@@ -41,20 +41,28 @@ export class AgentRunner {
    */
   static async runAgent(agent: Agent): Promise<AgentRunResult> {
     try {
-      // Find API or Reddit source
+      // Find API, Reddit, or X source
       const apiSource = agent.sources.find(source => source.type === 'api');
       const redditSource = agent.sources.find(source => source.type === 'reddit');
+      const xSource = agent.sources.find(source => source.type === 'x');
 
       let apiEndpoint: string;
       let queryParams: Record<string, string> = {};
+      let configUrl: string | undefined;
 
       if (redditSource?.config?.apiEndpoint && redditSource?.config?.subreddit) {
         // Reddit source: use the API endpoint with subreddit as query param
         apiEndpoint = redditSource.config.apiEndpoint;
         queryParams['subreddit'] = redditSource.config.subreddit;
+        configUrl = redditSource.config.url;
+      } else if (xSource?.config?.apiEndpoint && xSource?.config?.url) {
+        // X source: use the API endpoint with URL as config_url
+        apiEndpoint = xSource.config.apiEndpoint;
+        configUrl = xSource.config.url;
       } else if (apiSource?.config?.apiEndpoint) {
         // Regular API source
         apiEndpoint = apiSource.config.apiEndpoint;
+        configUrl = apiSource.config.url;
       } else {
         return {
           success: false,
@@ -64,14 +72,22 @@ export class AgentRunner {
       }
 
       // Prepare request body
-      const requestBody = {
+      const requestBody: any = {
         Question: agent.questionPrompt,
         AgentId: agent.id,
         AgentName: agent.name
       };
 
+      // Add config_url if available
+      if (configUrl) {
+        requestBody.config_url = configUrl;
+      }
+
       console.log(`[AgentRunner] Running agent "${agent.name}" (${agent.id})`);
       console.log(`[AgentRunner] API Endpoint: ${apiEndpoint}`);
+      if (configUrl) {
+        console.log(`[AgentRunner] Config URL: ${configUrl}`);
+      }
       if (Object.keys(queryParams).length > 0) {
         console.log(`[AgentRunner] Query Params:`, queryParams);
       }
