@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -224,12 +225,10 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
     border-color: var(--border);
   }
 
   body {
-    @apply bg-background text-foreground;
     font-family: var(--font-family);
     background-color: var(--background);
     color: var(--text-primary);
@@ -340,6 +339,31 @@ html {
 
   .shadow-card {
     box-shadow: var(--shadow-sm);
+  }
+
+  /* Metric card background colors */
+  .bg-metric-lime {
+    background-color: var(--metric-lime);
+  }
+
+  .bg-metric-peach {
+    background-color: var(--metric-peach);
+  }
+
+  .bg-metric-pink {
+    background-color: var(--metric-pink);
+  }
+
+  .bg-metric-blue {
+    background-color: var(--metric-blue);
+  }
+
+  .bg-metric-mint {
+    background-color: var(--metric-mint);
+  }
+
+  .bg-metric-purple {
+    background-color: var(--metric-purple);
   }
 }
 
