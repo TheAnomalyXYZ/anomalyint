@@ -275,7 +275,7 @@ Your role:
   const [platformDialogOpen, setPlatformDialogOpen] = useState(false);
   const [questionToQueue, setQuestionToQueue] = useState<Question | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [novaCollapsed, setNovaCollapsed] = useState(false);
+  const [novaCollapsed, setNovaCollapsed] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
   const [chatInput, setChatInput] = useState("");
