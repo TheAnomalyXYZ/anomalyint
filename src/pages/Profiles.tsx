@@ -108,7 +108,7 @@ export function Profiles() {
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
                   placeholder="e.g., Intelligence Guild"
-                  className="mt-2"
+                  className="mt-2 bg-muted/50 text-foreground"
                 />
               </div>
 
@@ -119,7 +119,7 @@ export function Profiles() {
                   value={brandDescription}
                   onChange={(e) => setBrandDescription(e.target.value)}
                   placeholder="Describe your brand, mission, and what makes you unique..."
-                  className="mt-2 min-h-[120px]"
+                  className="mt-2 min-h-[120px] bg-muted/50 text-foreground"
                 />
               </div>
 
@@ -131,7 +131,7 @@ export function Profiles() {
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
                     placeholder="https://example.com"
-                    className="mt-2"
+                    className="mt-2 bg-muted/50 text-foreground"
                   />
                 </div>
 
@@ -142,7 +142,7 @@ export function Profiles() {
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
                     placeholder="e.g., Technology, Finance, Healthcare"
-                    className="mt-2"
+                    className="mt-2 bg-muted/50 text-foreground"
                   />
                 </div>
               </div>
@@ -165,7 +165,7 @@ export function Profiles() {
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
                   placeholder="e.g., Tech-savvy professionals, Crypto enthusiasts"
-                  className="mt-2"
+                  className="mt-2 bg-muted/50 text-foreground"
                 />
               </div>
 
@@ -176,7 +176,7 @@ export function Profiles() {
                   value={brandVoice}
                   onChange={(e) => setBrandVoice(e.target.value)}
                   placeholder="Describe your brand's tone and communication style (e.g., professional yet approachable, innovative and bold)"
-                  className="mt-2 min-h-[100px]"
+                  className="mt-2 min-h-[100px] bg-muted/50 text-foreground"
                 />
               </div>
 
@@ -238,7 +238,7 @@ export function Profiles() {
                     value={socialLinks.twitter}
                     onChange={(e) => setSocialLinks({ ...socialLinks, twitter: e.target.value })}
                     placeholder="https://x.com/username"
-                    className="mt-2"
+                    className="mt-2 bg-muted/50 text-foreground"
                   />
                 </div>
 
@@ -249,7 +249,7 @@ export function Profiles() {
                     value={socialLinks.linkedin}
                     onChange={(e) => setSocialLinks({ ...socialLinks, linkedin: e.target.value })}
                     placeholder="https://linkedin.com/company/username"
-                    className="mt-2"
+                    className="mt-2 bg-muted/50 text-foreground"
                   />
                 </div>
 
@@ -260,7 +260,7 @@ export function Profiles() {
                     value={socialLinks.facebook}
                     onChange={(e) => setSocialLinks({ ...socialLinks, facebook: e.target.value })}
                     placeholder="https://facebook.com/username"
-                    className="mt-2"
+                    className="mt-2 bg-muted/50 text-foreground"
                   />
                 </div>
 
@@ -271,7 +271,7 @@ export function Profiles() {
                     value={socialLinks.instagram}
                     onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
                     placeholder="https://instagram.com/username"
-                    className="mt-2"
+                    className="mt-2 bg-muted/50 text-foreground"
                   />
                 </div>
               </div>
@@ -326,7 +326,7 @@ export function Profiles() {
                   value={logoUrl}
                   onChange={(e) => setLogoUrl(e.target.value)}
                   placeholder="https://example.com/logo.png"
-                  className="mt-2"
+                  className="mt-2 bg-muted/50 text-foreground"
                 />
               </div>
             </CardContent>
