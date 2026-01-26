@@ -109,6 +109,9 @@ export function AgentDetailsModal({
 
     setIsRunning(true);
 
+    // Show loading toast with ID so we can dismiss it later
+    const toastId = toast.loading(`Running agent "${agent.name}"...`);
+
     try {
       console.log(`Running agent: ${agent.name}`);
 
@@ -123,17 +126,22 @@ export function AgentDetailsModal({
       setIsRunning(false);
       onRunAgent?.(agent.id);
 
+      // Dismiss loading toast and show success
+      toast.dismiss(toastId);
       toast.success(`Agent executed successfully! Questions are being generated...`);
 
       // Wait 5 seconds for questions to appear in database, then reload
       setTimeout(async () => {
         await loadQuestions();
-        toast.success(`Questions refreshed from database`);
+        toast.info(`Questions refreshed from database`);
       }, 5000);
 
     } catch (error) {
       console.error('Error generating questions:', error);
       setIsRunning(false);
+
+      // Dismiss loading toast and show error
+      toast.dismiss(toastId);
       toast.error(error instanceof Error ? error.message : "Failed to generate questions");
     }
   };
@@ -285,7 +293,7 @@ export function AgentDetailsModal({
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                <h2 className="text-xl">🔥 Generated Questions</h2>
+                <h2 className="text-xl">🔥 Generated Events</h2>
                 <Badge variant="secondary">{generatedQuestions.length}</Badge>
               </div>
               <div className="flex items-center gap-2">
