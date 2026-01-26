@@ -283,7 +283,7 @@ export function AgentDetailsModal({
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="text-2xl font-bold">{agent.questionsCreated}</div>
-                <div className="text-xs text-muted-foreground">Questions Created</div>
+                <div className="text-xs text-muted-foreground">Events Created</div>
               </CardContent>
             </Card>
           </div>
