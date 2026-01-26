@@ -19,7 +19,6 @@ import {
   Bot,
   ChevronUp,
   Send,
-  X as XIcon,
   User,
   RefreshCw
 } from "lucide-react";
@@ -1252,26 +1251,16 @@ Your role:
       <Dialog open={chatOpen} onOpenChange={setChatOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col p-0">
           <DialogHeader className="p-6 pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 gradient-primary text-white rounded-lg">
-                  <Brain className="h-5 w-5" />
-                </div>
-                <div>
-                  <DialogTitle>AI Content Generator</DialogTitle>
-                  <DialogDescription>
-                    Chat with AI to create engaging content
-                  </DialogDescription>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 gradient-primary text-white rounded-lg">
+                <Brain className="h-5 w-5" />
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setChatOpen(false)}
-                className="h-8 w-8"
-              >
-                <XIcon className="h-4 w-4" />
-              </Button>
+              <div>
+                <DialogTitle>AI Content Generator</DialogTitle>
+                <DialogDescription>
+                  Chat with AI to create engaging content
+                </DialogDescription>
+              </div>
             </div>
           </DialogHeader>
 
