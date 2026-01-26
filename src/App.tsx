@@ -4,6 +4,7 @@ import { Overview } from "./pages/Overview";
 import { Markets } from "./pages/Markets";
 import { ManageQuestions } from "./pages/ManageQuestions";
 import { Profiles } from "./pages/Profiles";
+import { TrackedContent } from "./pages/TrackedContent";
 import { Agents } from "./pages/Agents";
 import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/markets" element={<Markets />} />
           <Route path="/questions" element={<ManageQuestions />} />
           <Route path="/profiles" element={<Profiles />} />
+          <Route path="/tracked-content" element={<TrackedContent />} />
           <Route path="/agents" element={<Agents />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />

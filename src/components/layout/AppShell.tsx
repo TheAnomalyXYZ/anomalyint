@@ -24,6 +24,7 @@ import {
   Bot,
   Building2,
   ChevronUp,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -48,6 +49,7 @@ const navigation = [
       { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/overview" },
       { id: "markets", label: "Pulse", icon: Sparkles, path: "/markets" },
       { id: "profiles", label: "Profiles", icon: Building2, path: "/profiles" },
+      { id: "tracked-content", label: "Tracked Content", icon: MessageCircle, path: "/tracked-content" },
       { id: "agents", label: "AI Agents", icon: Bot, path: "/agents" },
     ],
   },
