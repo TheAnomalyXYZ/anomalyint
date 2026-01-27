@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -7,52 +7,60 @@ import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Building2, Save, Upload, X, Plus, Trash2, FolderOpen, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-
-interface BrandProfile {
-  id: string;
-  name: string;
-  brandDescription: string;
-  website: string;
-  industry: string;
-  targetAudience: string;
-  brandVoice: string;
-  keyValues: string[];
-  logoUrl: string;
-  primaryColor: string;
-  secondaryColor: string;
-  socialLinks: {
-    twitter: string;
-    linkedin: string;
-    facebook: string;
-    instagram: string;
-  };
-  metaContent: string[];
-  googleDriveFolders: string[];
-}
+import { BrandProfile } from "../lib/types";
+import { profilesApi } from "../lib/supabase";
 
 export function Profiles() {
-  const [profiles, setProfiles] = useState<BrandProfile[]>([
-    {
-      id: "1",
-      name: "Intelligence Guild",
-      brandDescription: "",
-      website: "",
-      industry: "",
-      targetAudience: "",
-      brandVoice: "",
-      keyValues: [],
-      logoUrl: "",
-      primaryColor: "#6366f1",
-      secondaryColor: "#8b5cf6",
-      socialLinks: { twitter: "", linkedin: "", facebook: "", instagram: "" },
-      metaContent: [],
-      googleDriveFolders: [],
-    },
-  ]);
-  const [selectedProfileId, setSelectedProfileId] = useState<string>("1");
+  const [profiles, setProfiles] = useState<BrandProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [newValue, setNewValue] = useState("");
   const [newMetaContent, setNewMetaContent] = useState("");
   const [newDriveFolder, setNewDriveFolder] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  // Load profiles from database
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+
+  const loadProfiles = async () => {
+    setLoading(true);
+    try {
+      const loadedProfiles = await profilesApi.getProfiles();
+
+      // If no profiles exist, create a default one
+      if (loadedProfiles.length === 0) {
+        const defaultProfile = await profilesApi.createProfile({
+          name: "Intelligence Guild",
+          brandDescription: "",
+          website: "",
+          industry: "",
+          targetAudience: "",
+          brandVoice: "",
+          keyValues: [],
+          logoUrl: "",
+          primaryColor: "#6366f1",
+          secondaryColor: "#8b5cf6",
+          socialLinks: { twitter: "", linkedin: "", facebook: "", instagram: "" },
+          metaContent: [],
+          googleDriveFolderIds: [],
+        });
+
+        if (defaultProfile) {
+          setProfiles([defaultProfile]);
+          setSelectedProfileId(defaultProfile.id);
+        }
+      } else {
+        setProfiles(loadedProfiles);
+        setSelectedProfileId(loadedProfiles[0].id);
+      }
+    } catch (error) {
+      console.error("Error loading profiles:", error);
+      toast.error("Failed to load profiles");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const selectedProfile = profiles.find(p => p.id === selectedProfileId) || profiles[0];
 
@@ -94,64 +102,116 @@ export function Profiles() {
 
   const handleAddDriveFolder = () => {
     if (!newDriveFolder.trim()) {
-      toast.error("Please enter a Google Drive folder URL");
+      toast.error("Please enter a Google Drive folder ID");
       return;
     }
-    if (!newDriveFolder.includes("drive.google.com")) {
-      toast.error("Please enter a valid Google Drive URL");
-      return;
-    }
-    updateProfile({ googleDriveFolders: [...selectedProfile.googleDriveFolders, newDriveFolder.trim()] });
+    // Note: For now, we're storing IDs as strings. Later this will reference a separate table.
+    updateProfile({ googleDriveFolderIds: [...selectedProfile.googleDriveFolderIds, newDriveFolder.trim()] });
     setNewDriveFolder("");
   };
 
   const handleRemoveDriveFolder = (index: number) => {
-    updateProfile({ googleDriveFolders: selectedProfile.googleDriveFolders.filter((_, i) => i !== index) });
+    updateProfile({ googleDriveFolderIds: selectedProfile.googleDriveFolderIds.filter((_, i) => i !== index) });
   };
 
-  const handleCreateProfile = () => {
-    const newProfile: BrandProfile = {
-      id: Date.now().toString(),
-      name: `New Profile ${profiles.length + 1}`,
-      brandDescription: "",
-      website: "",
-      industry: "",
-      targetAudience: "",
-      brandVoice: "",
-      keyValues: [],
-      logoUrl: "",
-      primaryColor: "#6366f1",
-      secondaryColor: "#8b5cf6",
-      socialLinks: { twitter: "", linkedin: "", facebook: "", instagram: "" },
-      metaContent: [],
-      googleDriveFolders: [],
-    };
-    setProfiles([...profiles, newProfile]);
-    setSelectedProfileId(newProfile.id);
-    toast.success("New profile created!");
+  const handleCreateProfile = async () => {
+    try {
+      const newProfile = await profilesApi.createProfile({
+        name: `New Profile ${profiles.length + 1}`,
+        brandDescription: "",
+        website: "",
+        industry: "",
+        targetAudience: "",
+        brandVoice: "",
+        keyValues: [],
+        logoUrl: "",
+        primaryColor: "#6366f1",
+        secondaryColor: "#8b5cf6",
+        socialLinks: { twitter: "", linkedin: "", facebook: "", instagram: "" },
+        metaContent: [],
+        googleDriveFolderIds: [],
+      });
+
+      if (newProfile) {
+        setProfiles([...profiles, newProfile]);
+        setSelectedProfileId(newProfile.id);
+        toast.success("New profile created!");
+      } else {
+        toast.error("Failed to create profile");
+      }
+    } catch (error) {
+      console.error("Error creating profile:", error);
+      toast.error("Failed to create profile");
+    }
   };
 
-  const handleDeleteProfile = (profileId: string) => {
+  const handleDeleteProfile = async (profileId: string) => {
     if (profiles.length === 1) {
       toast.error("Cannot delete the last profile");
       return;
     }
-    setProfiles(profiles.filter(p => p.id !== profileId));
-    if (selectedProfileId === profileId) {
-      setSelectedProfileId(profiles[0].id);
+
+    try {
+      const success = await profilesApi.deleteProfile(profileId);
+
+      if (success) {
+        setProfiles(profiles.filter(p => p.id !== profileId));
+        if (selectedProfileId === profileId) {
+          setSelectedProfileId(profiles[0].id);
+        }
+        toast.success("Profile deleted");
+      } else {
+        toast.error("Failed to delete profile");
+      }
+    } catch (error) {
+      console.error("Error deleting profile:", error);
+      toast.error("Failed to delete profile");
     }
-    toast.success("Profile deleted");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedProfile.name) {
       toast.error("Please enter a profile name");
       return;
     }
 
-    console.log("Saving brand profile:", selectedProfile);
-    toast.success("Brand profile saved successfully!");
+    try {
+      const updatedProfile = await profilesApi.updateProfile(selectedProfile.id, selectedProfile);
+
+      if (updatedProfile) {
+        // Update local state with the saved profile
+        setProfiles(profiles.map(p => p.id === updatedProfile.id ? updatedProfile : p));
+        toast.success("Brand profile saved successfully!");
+      } else {
+        toast.error("Failed to save profile");
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      toast.error("Failed to save profile");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">Loading profiles...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedProfile) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">No profiles found</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-8">
@@ -486,7 +546,7 @@ export function Profiles() {
                   <Input
                     value={newDriveFolder}
                     onChange={(e) => setNewDriveFolder(e.target.value)}
-                    placeholder="https://drive.google.com/drive/folders/..."
+                    placeholder="Enter Google Drive folder ID (e.g., 1a2b3c4d5e6f)"
                     className="bg-muted/50 text-foreground"
                   />
                   <Button type="button" onClick={handleAddDriveFolder} size="icon">
@@ -494,24 +554,19 @@ export function Profiles() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Add Google Drive folder links for brand assets, guidelines, or reference materials
+                  Add Google Drive folder IDs for brand assets, guidelines, or reference materials
                 </p>
-                {selectedProfile.googleDriveFolders.length > 0 && (
+                {selectedProfile.googleDriveFolderIds.length > 0 && (
                   <div className="space-y-2 mt-3">
-                    {selectedProfile.googleDriveFolders.map((folder, idx) => (
+                    {selectedProfile.googleDriveFolderIds.map((folderId, idx) => (
                       <div
                         key={idx}
                         className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border"
                       >
                         <FolderOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <a
-                          href={folder}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm flex-1 truncate hover:underline text-primary"
-                        >
-                          {folder}
-                        </a>
+                        <span className="text-sm flex-1 truncate font-mono text-muted-foreground">
+                          {folderId}
+                        </span>
                         <Button
                           variant="ghost"
                           size="icon"

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Agent, Question } from './types';
+import { Agent, Question, BrandProfile } from './types';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -549,6 +549,179 @@ export const novaRatingsApi = {
       return true;
     } catch (error) {
       console.error('Error deleting nova rating:', error);
+      return false;
+    }
+  },
+};
+
+// Helper function to convert database profile to our BrandProfile type
+function convertDbProfile(dbProfile: any): BrandProfile {
+  return {
+    id: dbProfile.id,
+    name: dbProfile.name,
+    brandDescription: dbProfile.brand_description || '',
+    website: dbProfile.website || '',
+    industry: dbProfile.industry || '',
+    targetAudience: dbProfile.target_audience || '',
+    brandVoice: dbProfile.brand_voice || '',
+    keyValues: dbProfile.key_values || [],
+    logoUrl: dbProfile.logo_url || '',
+    primaryColor: dbProfile.primary_color || '#6366f1',
+    secondaryColor: dbProfile.secondary_color || '#8b5cf6',
+    socialLinks: dbProfile.social_links || {
+      twitter: '',
+      linkedin: '',
+      facebook: '',
+      instagram: '',
+    },
+    metaContent: dbProfile.meta_content || [],
+    googleDriveFolderIds: dbProfile.google_drive_folder_ids || [],
+    createdAt: new Date(dbProfile.created_at),
+    updatedAt: new Date(dbProfile.updated_at),
+  };
+}
+
+export const profilesApi = {
+  async getProfiles(): Promise<BrandProfile[]> {
+    try {
+      const { data, error } = await supabase
+        .from('brand_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        return [];
+      }
+
+      return (data || []).map(convertDbProfile);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+      return [];
+    }
+  },
+
+  async getProfile(id: string): Promise<BrandProfile | null> {
+    try {
+      const { data, error } = await supabase
+        .from('brand_profiles')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+
+      return data ? convertDbProfile(data) : null;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
+  },
+
+  async createProfile(profile: Partial<BrandProfile>): Promise<BrandProfile | null> {
+    try {
+      const profileId = profile.id || crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { data, error } = await supabase
+        .from('brand_profiles')
+        .insert({
+          id: profileId,
+          name: profile.name || '',
+          brand_description: profile.brandDescription || '',
+          website: profile.website || '',
+          industry: profile.industry || '',
+          target_audience: profile.targetAudience || '',
+          brand_voice: profile.brandVoice || '',
+          key_values: profile.keyValues || [],
+          logo_url: profile.logoUrl || '',
+          primary_color: profile.primaryColor || '#6366f1',
+          secondary_color: profile.secondaryColor || '#8b5cf6',
+          social_links: profile.socialLinks || {
+            twitter: '',
+            linkedin: '',
+            facebook: '',
+            instagram: '',
+          },
+          meta_content: profile.metaContent || [],
+          google_drive_folder_ids: profile.googleDriveFolderIds || [],
+          created_at: now,
+          updated_at: now,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        return null;
+      }
+
+      return data ? convertDbProfile(data) : null;
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      return null;
+    }
+  },
+
+  async updateProfile(id: string, profile: Partial<BrandProfile>): Promise<BrandProfile | null> {
+    try {
+      const now = new Date().toISOString();
+
+      const dbUpdates: any = {
+        updated_at: now,
+      };
+
+      if (profile.name !== undefined) dbUpdates.name = profile.name;
+      if (profile.brandDescription !== undefined) dbUpdates.brand_description = profile.brandDescription;
+      if (profile.website !== undefined) dbUpdates.website = profile.website;
+      if (profile.industry !== undefined) dbUpdates.industry = profile.industry;
+      if (profile.targetAudience !== undefined) dbUpdates.target_audience = profile.targetAudience;
+      if (profile.brandVoice !== undefined) dbUpdates.brand_voice = profile.brandVoice;
+      if (profile.keyValues !== undefined) dbUpdates.key_values = profile.keyValues;
+      if (profile.logoUrl !== undefined) dbUpdates.logo_url = profile.logoUrl;
+      if (profile.primaryColor !== undefined) dbUpdates.primary_color = profile.primaryColor;
+      if (profile.secondaryColor !== undefined) dbUpdates.secondary_color = profile.secondaryColor;
+      if (profile.socialLinks !== undefined) dbUpdates.social_links = profile.socialLinks;
+      if (profile.metaContent !== undefined) dbUpdates.meta_content = profile.metaContent;
+      if (profile.googleDriveFolderIds !== undefined) dbUpdates.google_drive_folder_ids = profile.googleDriveFolderIds;
+
+      const { data, error } = await supabase
+        .from('brand_profiles')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        return null;
+      }
+
+      return data ? convertDbProfile(data) : null;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return null;
+    }
+  },
+
+  async deleteProfile(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('brand_profiles')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting profile:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting profile:', error);
       return false;
     }
   },

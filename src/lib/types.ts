@@ -168,3 +168,28 @@ export interface AIResolutionProposal {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Brand Profile Types
+export interface BrandProfile {
+  id: string;
+  name: string;
+  brandDescription: string;
+  website: string;
+  industry: string;
+  targetAudience: string;
+  brandVoice: string;
+  keyValues: string[];
+  logoUrl: string;
+  primaryColor: string;
+  secondaryColor: string;
+  socialLinks: {
+    twitter: string;
+    linkedin: string;
+    facebook: string;
+    instagram: string;
+  };
+  metaContent: string[];
+  googleDriveFolderIds: string[]; // Array of Google Drive folder IDs
+  createdAt: Date;
+  updatedAt: Date;
+}
