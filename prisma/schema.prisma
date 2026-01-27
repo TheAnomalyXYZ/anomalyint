@@ -303,6 +303,29 @@ model QuestionRiskFlag {
   @@map("question_risk_flags")
 }
 
+model BrandProfile {
+  id                   String   @id @default(cuid())
+  name                 String
+  brandDescription     String?  @map("brand_description") @db.Text
+  website              String?
+  industry             String?
+  targetAudience       String?  @map("target_audience")
+  brandVoice           String?  @map("brand_voice") @db.Text
+  keyValues            String[] @default([]) @map("key_values")
+  logoUrl              String?  @map("logo_url")
+  primaryColor         String   @default("#6366f1") @map("primary_color")
+  secondaryColor       String   @default("#8b5cf6") @map("secondary_color")
+  socialLinks          Json     @default("{\"twitter\": \"\", \"linkedin\": \"\", \"facebook\": \"\", \"instagram\": \"\"}") @map("social_links")
+  metaContent          String[] @default([]) @map("meta_content")
+  googleDriveFolderIds String[] @default([]) @map("google_drive_folder_ids")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("brand_profiles")
+  @@index([name])
+  @@index([createdAt])
+}
+
 // Enums
 enum SourceType {
   twitter

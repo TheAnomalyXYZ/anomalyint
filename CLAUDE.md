@@ -12,6 +12,12 @@ This is a React + TypeScript application for an AI Automation Dashboard UI focus
 - `npm run dev` - Start development server (runs on port 3000, opens browser automatically)
 - `npm run build` - Build the production application
 
+### Database Commands (Prisma)
+- `npm run db:push` - Push Prisma schema changes to database (use this for migrations)
+- `npm run db:generate` - Generate Prisma Client
+- `npm run db:studio` - Open Prisma Studio GUI
+- `npm run db:test` - Test database connection
+
 ## Architecture
 
 ### Core Stack
@@ -70,11 +76,23 @@ The application works with several core types defined in `lib/types.ts`:
 - Responsive design with mobile support via `use-mobile.ts` hook
 - Toronto timezone formatting for dates
 
+### Database Management
+
+**IMPORTANT: This project uses Prisma for database schema management and migrations.**
+
+- **Schema Location**: `prisma/schema.prisma`
+- **ORM**: Prisma Client (PostgreSQL via Supabase)
+- **Migrations**: Use `npm run db:push` to apply schema changes to the database
+- **DO NOT** manually write SQL migrations - always update the Prisma schema and use `npm run db:push`
+- **DO NOT** use Supabase SQL Editor for schema changes - use Prisma
+- After schema changes, Prisma will automatically regenerate the client
+
 ### Supabase Integration
 
+- Database hosted on Supabase PostgreSQL
+- Client-side queries via `@supabase/supabase-js` in `src/lib/supabase.ts`
 - Server functions in `supabase/functions/`
-- KV store implementation for data persistence
-- Database integration via `@jsr/supabase__supabase-js`
+- Environment variables must be prefixed with `VITE_` for client-side access
 
 ## Development Notes
 
