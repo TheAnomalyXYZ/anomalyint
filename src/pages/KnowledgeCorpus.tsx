@@ -119,7 +119,19 @@ export function KnowledgeCorpus() {
     try {
       setSyncing(prev => new Set(prev).add(corpusId));
 
-      const data = await corporaApi.syncCorpus(corpusId);
+      // Call the actual Vercel API endpoint to trigger file processing
+      const response = await fetch('/api/corpora/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ corpus_id: corpusId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || error.error || 'Failed to start sync');
+      }
+
+      const data = await response.json();
 
       toast.success('Sync started!');
 
