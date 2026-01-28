@@ -1,224 +1,325 @@
-# Database Schema for Predictive Markets Dashboard
+# Database Setup Guide
 
-This directory contains the complete database schema and migration scripts for migrating from TypeScript mock data to PlanetScale MySQL database.
+This guide covers setting up the Supabase PostgreSQL database with pgvector for the Knowledge Corpus RAG feature.
 
-## Schema Overview
+## Prerequisites
 
-### Core Tables
+- Supabase project created
+- `DATABASE_URL` environment variable set in `.env`
+- Node.js and npm installed
 
-#### `questions`
-Main table for prediction market questions with states: draft, awaiting_review, published, answering_closed, awaiting_resolution, resolved, invalid, paused.
+## Quick Start
 
-Key fields:
-- `id` - UUID primary key
-- `title` - Question title (up to 1000 chars)
-- `state` - Current question state
-- `live_date` - When question goes live
-- `answer_end_at` - Deadline for answers
-- `settlement_at` - When question will be resolved
-- `pool_*` - Betting pool information
-
-#### `proposed_questions`
-AI-generated questions awaiting review.
-
-Key fields:
-- `ai_score` - AI confidence score (0.00-1.00)
-- `type` - binary or multi-option
-- All date fields for proposed schedule
-
-#### `users`
-User accounts for the platform.
-
-#### `sources`
-Information sources for questions (Twitter, news, memes).
-
-Key fields:
-- `type` - twitter, news, meme
-- `trust_level` - high, medium, low
-- `is_pinned` - Featured sources
-
-#### `agents`
-AI agents that generate questions automatically.
-
-Key fields:
-- `question_prompt` - Prompt for question generation
-- `frequency` - daily, on_update, weekly
-- `status` - active, paused, error
-- `is_template` - Whether this is a template agent
-
-### Junction Tables
-
-- `question_categories` - Many-to-many: questions ↔ categories
-- `question_tags` - Many-to-many: questions ↔ tags
-- `question_sources` - Many-to-many: questions ↔ sources
-- `proposed_question_*` - Similar junctions for proposed questions
-- `agent_sources` - Agent source configurations
-
-### Analytics Tables
-
-#### `answers`
-User predictions/bets on questions.
-
-Key fields:
-- `choice` - YES or NO
-- `confidence` - Confidence level (0.00-1.00)
-- `channel` - web, mobile, api
-
-#### `kpi_stats`
-Dashboard metrics and KPI tracking.
-
-#### `audit_events`
-Complete audit log of all system changes.
-
-#### `connector_health`
-Status monitoring for external data connectors.
-
-## Migration Strategy
-
-### Phase 1: Core Schema (`001_initial_schema.sql`)
-- Create core tables: users, sources, categories, tags, risk_flags
-- Create question and proposed_question tables
-- Set up junction tables for many-to-many relationships
-- Insert initial reference data
-
-### Phase 2: Agents & Analytics (`002_agents_and_analytics.sql`)
-- Add AI agent management tables
-- Add analytics and reporting tables
-- Add audit logging infrastructure
-- Add connector health monitoring
-
-## PlanetScale Considerations
-
-### Vitess Compatibility
-- Uses VARCHAR(36) for UUIDs (compatible with Vitess)
-- Avoids foreign key constraints in favor of application-level integrity where needed
-- Optimized indexes for query patterns
-
-### Performance Optimizations
-- Strategic indexing on commonly queried fields
-- Normalized categories/tags to reduce storage
-- JSON column for flexible audit event data
-- Proper timestamp indexing for time-series queries
-
-### Scaling Features
-- Read replicas friendly (no complex joins in critical paths)
-- Partitioning ready (by date fields)
-- Connection pooling compatible
-
-## Data Migration
-
-### From Mock Data
-The TypeScript interfaces in `src/lib/types.ts` map to these tables:
-
-```typescript
-Question → questions table
-ProposedQuestion → proposed_questions table
-Answer → answers table
-Agent → agents table + agent_sources table
-Source → sources table
-AuditEvent → audit_events table
-```
-
-### Sample Migration Script
-```sql
--- Migrate mock questions
-INSERT INTO questions (
-  id, title, description, state, answer_end_at,
-  settlement_at, resolution_criteria, created_at
-) SELECT
-  id, title, description, 'published',
-  answer_end_at, settlement_at, resolution_criteria,
-  created_at
-FROM mock_questions;
-
--- Migrate categories (normalized)
-INSERT IGNORE INTO categories (name)
-SELECT DISTINCT category FROM mock_question_categories;
-
-INSERT INTO question_categories (question_id, category_id)
-SELECT q.id, c.id
-FROM mock_questions q
-JOIN mock_question_categories mqc ON q.id = mqc.question_id
-JOIN categories c ON mqc.category = c.name;
-```
-
-## Environment Setup
-
-### Local Development
 ```bash
-# Install PlanetScale CLI
-pscale auth login
+# 1. Enable extensions (run in Supabase SQL Editor)
+# See step 1 below
 
-# Create development database
-pscale database create predictive-markets-dev
+# 2. Push Prisma schema to database
+npm run db:push
 
-# Apply migrations
-pscale shell predictive-markets-dev < database/schema.sql
+# 3. Create chunks table with pgvector (run in Supabase SQL Editor)
+# See step 3 below
+
+# 4. Generate Prisma client
+npm run db:generate
+
+# 5. Verify setup
+npm run db:test
 ```
-
-### Production Setup
-```bash
-# Create production database
-pscale database create predictive-markets
-
-# Create deploy request
-pscale deploy-request create predictive-markets initial-schema
-
-# Apply migrations via deploy request
-pscale deploy-request apply predictive-markets 1
-```
-
-## API Integration
-
-### Connection String Format
-```
-mysql://user:password@host:port/database?sslaccept=strict
-```
-
-### Recommended ORM
-- **Prisma** - Excellent PlanetScale support with connection pooling
-- **Drizzle** - Lightweight, great TypeScript integration
-- **TypeORM** - Full-featured, good for complex queries
-
-### Connection Pooling
-```typescript
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-})
-```
-
-## Backup Strategy
-
-- **PlanetScale Backups** - Automatic daily backups
-- **Point-in-time Recovery** - Available for paid plans
-- **Export Scripts** - Regular data exports for critical tables
-
-## Monitoring
-
-### Key Metrics to Track
-- Question creation rate
-- Answer submission rate
-- Agent execution frequency
-- Database connection pool usage
-- Query performance metrics
-
-### Alerting
-- Failed agent executions
-- Database connection issues
-- Unusual spike in question creation
-- High query latency
 
 ---
 
-**Next Steps:**
-1. Review schema with team
-2. Set up PlanetScale database
-3. Create Prisma schema file
-4. Build migration scripts for existing data
-5. Set up monitoring and alerting
+## Detailed Setup Steps
+
+### 1. Enable Required Extensions
+
+Enable pgvector and pgcrypto extensions in Supabase.
+
+**Via Supabase Dashboard:**
+1. Go to https://supabase.com/dashboard/project/YOUR_PROJECT_ID/database/extensions
+2. Search for "vector" and enable it
+3. Search for "pgcrypto" and enable it
+
+**Via SQL Editor:**
+1. Go to https://supabase.com/dashboard/project/YOUR_PROJECT_ID/sql/new
+2. Run:
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+```
+
+### 2. Push Prisma Schema to Database
+
+Run this command from your project root:
+
+```bash
+npm run db:push
+```
+
+This creates all tables defined in `prisma/schema.prisma`:
+- ✅ `oauth_credentials` - OAuth tokens for Google Drive
+- ✅ `drive_sources` - Google Drive connections
+- ✅ `corpora` - Knowledge corpus definitions
+- ✅ `documents` - Indexed files from Drive
+- ✅ `ingestion_jobs` - Sync job tracking
+- ✅ `retrieval_audit` - RAG query logs
+- ✅ All existing tables (questions, agents, users, etc.)
+
+**Note:** The `chunks` table is NOT created by Prisma because it uses pgvector, which isn't natively supported.
+
+### 3. Create chunks Table with pgvector
+
+Run this SQL in Supabase SQL Editor (https://supabase.com/dashboard/project/YOUR_PROJECT_ID/sql/new):
+
+```sql
+-- Text chunks with vector embeddings
+CREATE TABLE IF NOT EXISTS chunks (
+  id VARCHAR(36) PRIMARY KEY,
+  document_id VARCHAR(36) NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  chunk_index INT NOT NULL,
+  content TEXT NOT NULL,
+  token_count INT,
+  embedding vector(1536), -- OpenAI text-embedding-3-small dimension
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_index ON chunks(document_id, chunk_index);
+
+-- Vector similarity index (HNSW for fast ANN search)
+CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks
+  USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+
+-- Enable Row Level Security
+ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
+
+COMMENT ON TABLE chunks IS 'Text chunks with vector embeddings for semantic search';
+COMMENT ON COLUMN chunks.embedding IS 'OpenAI text-embedding-3-small vector (1536 dimensions)';
+```
+
+### 4. Create Vector Search Function
+
+Run this SQL to create the `match_chunks` function for RAG retrieval:
+
+```sql
+CREATE OR REPLACE FUNCTION match_chunks(
+  query_embedding vector(1536),
+  filter_corpus_id VARCHAR(36),
+  match_threshold FLOAT DEFAULT 0.7,
+  match_count INT DEFAULT 5
+)
+RETURNS TABLE (
+  chunk_id VARCHAR(36),
+  document_id VARCHAR(36),
+  content TEXT,
+  similarity FLOAT,
+  metadata JSONB,
+  file_name VARCHAR(500)
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    c.id AS chunk_id,
+    c.document_id,
+    c.content,
+    1 - (c.embedding <=> query_embedding) AS similarity,
+    c.metadata,
+    d.file_name
+  FROM chunks c
+  JOIN documents d ON c.document_id = d.id
+  WHERE d.corpus_id = filter_corpus_id
+    AND 1 - (c.embedding <=> query_embedding) > match_threshold
+  ORDER BY c.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### 5. Generate Prisma Client
+
+Generate the Prisma client with the latest schema:
+
+```bash
+npm run db:generate
+```
+
+### 6. Verify Setup
+
+Run this query in Supabase SQL Editor to verify all tables exist:
+
+```sql
+SELECT
+  table_name,
+  table_type
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN (
+    'oauth_credentials',
+    'drive_sources',
+    'corpora',
+    'documents',
+    'chunks',
+    'ingestion_jobs',
+    'retrieval_audit'
+  )
+ORDER BY table_name;
+```
+
+**Expected result:** 7 rows (all tables listed above)
+
+You can also test the database connection:
+
+```bash
+npm run db:test
+```
+
+---
+
+## Common Commands
+
+### Development Workflow
+
+```bash
+# Push schema changes to Supabase
+npm run db:push
+
+# Generate Prisma client after schema changes
+npm run db:generate
+
+# Open Prisma Studio to view/edit data
+npm run db:studio
+
+# Test database connection
+npm run db:test
+```
+
+### Making Schema Changes
+
+When updating the database schema:
+
+1. Edit `prisma/schema.prisma`
+2. Run `npm run db:push` to sync with Supabase
+3. Run `npm run db:generate` to update Prisma client
+4. If changes involve pgvector, manually update chunks table SQL
+
+---
+
+## Troubleshooting
+
+### Error: "Could not find table 'public.chunks'"
+
+**Cause:** The chunks table hasn't been created yet.
+
+**Solution:** Run step 3 above (create chunks table with pgvector).
+
+### Error: "Extension 'vector' does not exist"
+
+**Cause:** pgvector extension not enabled.
+
+**Solution:** Run step 1 above (enable pgvector extension).
+
+### Error: "Prisma schema and database are out of sync"
+
+**Cause:** Schema changes haven't been pushed to database.
+
+**Solution:** Run `npm run db:push`
+
+### Error: "Cannot generate embeddings" or chunking type errors
+
+**Cause:** Missing dependencies.
+
+**Solution:**
+```bash
+npm install tiktoken openai
+```
+
+### Error: "BigInt serialization error"
+
+**Cause:** Trying to JSON.stringify a BigInt value.
+
+**Solution:** Use `parseInt()` instead of `BigInt()` for file sizes.
+
+---
+
+## Architecture
+
+### Data Flow
+
+1. **OAuth Setup**: User provides Google OAuth tokens → `oauth_credentials`
+2. **Drive Connection**: Link Google Drive account → `drive_sources`
+3. **Corpus Creation**: Define folder boundaries → `corpora`
+4. **Sync Process**:
+   - List files from Google Drive
+   - Download and extract text (PDF, Google Docs, txt)
+   - Chunk text into ~800 token segments with 200 token overlap
+   - Generate embeddings via OpenAI API (text-embedding-3-small)
+   - Store metadata in `documents` table
+   - Store chunks with embeddings in `chunks` table
+   - Track progress in `ingestion_jobs` table
+5. **RAG Retrieval**:
+   - User query → OpenAI embedding
+   - Vector similarity search via `match_chunks()`
+   - Return top-k relevant chunks
+
+### Table Relationships
+
+```
+oauth_credentials
+  └── drive_sources
+       └── corpora
+            ├── documents
+            │    └── chunks (pgvector)
+            ├── ingestion_jobs
+            └── retrieval_audit
+
+brand_profiles
+  └── corpora (optional relationship)
+```
+
+### Vector Search Performance
+
+The HNSW index parameters:
+- `m = 16`: Number of connections per layer (higher = better recall, slower build)
+- `ef_construction = 64`: Size of dynamic candidate list (higher = better quality, slower build)
+
+For queries, you can adjust:
+- `match_threshold`: Minimum similarity score (0-1, default 0.7)
+- `match_count`: Number of results to return (default 5)
+
+---
+
+## Security Notes
+
+- ✅ All tables have RLS (Row Level Security) enabled
+- ⚠️ OAuth tokens should be encrypted with pgcrypto (TODO)
+- ✅ API keys stored in environment variables only
+- ✅ Never commit `.env` files to git
+- ✅ Vercel Functions have 60s timeout (batch processing accordingly)
+
+---
+
+## File Reference
+
+- `prisma/schema.prisma` - Main database schema (Prisma ORM)
+- `database/migrations/` - SQL migration files
+- `database/run-all-migrations.sql` - Consolidated migration (includes chunks table)
+- `api/lib/ingestion-pipeline.ts` - Sync orchestration
+- `api/lib/chunking.ts` - Text chunking with tiktoken
+- `api/lib/embeddings.ts` - OpenAI embeddings generation
+- `api/lib/google-drive.ts` - Google Drive API integration
+
+---
+
+## Next Steps
+
+After setup:
+
+1. ✅ Verify all tables created
+2. Set up Google OAuth credentials
+3. Create first corpus via UI
+4. Run initial sync
+5. Test RAG retrieval via API
+
+For questions or issues, check the main project README or open an issue.
