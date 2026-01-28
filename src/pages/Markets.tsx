@@ -36,7 +36,7 @@ import { formatDate, formatDateTime, getCategoryColor } from "../lib/utils";
 import { EmptyState } from "../components/shared/EmptyState";
 import { QuestionDetailsModal } from "../components/shared/QuestionDetailsModal";
 import { NovaProcessingModal } from "../components/shared/NovaProcessingModal";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function Markets() {
   const [searchParams, setSearchParams] = useSearchParams();

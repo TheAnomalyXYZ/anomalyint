@@ -15,7 +15,7 @@ import {
 import { Play, Settings as SettingsIcon, ExternalLink, CheckCircle, XCircle, Clock } from "lucide-react";
 import { mockConnectors, mockSources } from "../lib/mock-data";
 import { formatDateTime } from "../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface SourcesMonitorProps {
   onNavigate: (page: string) => void;

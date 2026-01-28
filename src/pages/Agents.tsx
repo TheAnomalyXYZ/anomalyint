@@ -40,7 +40,7 @@ import {
 import { agentsApi } from "../lib/supabase";
 import { Agent, AgentSource, AgentSourceType } from "../lib/types";
 import { formatDateTime } from "../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function Agents() {
   const navigate = useNavigate();

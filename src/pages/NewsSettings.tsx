@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Plus, Trash2, Newspaper, CheckCircle, XCircle } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface NewsSource {
   id: string;

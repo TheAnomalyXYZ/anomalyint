@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Plus, Trash2, Twitter, CheckCircle, XCircle } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface TwitterAccount {
   id: string;

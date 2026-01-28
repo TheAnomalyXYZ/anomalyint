@@ -25,7 +25,7 @@ import {
 } from "../components/ui/dialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Plus, Trash2, MessageSquare, CheckCircle, XCircle, Info } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface DiscordServer {
   id: string;

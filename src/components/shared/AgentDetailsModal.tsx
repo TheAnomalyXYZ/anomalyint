@@ -28,7 +28,7 @@ import {
   ArrowRight,
   RefreshCw,
 } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { AgentRunner } from "../../api/agentRunner";
 
 interface AgentDetailsModalProps {

@@ -20,7 +20,7 @@ import {
 } from "../ui/select";
 import { Badge } from "../ui/badge";
 import { AgentSourceType, AgentFrequency, Agent, AgentSource } from "../../lib/types";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Plus, X, Globe, Link as LinkIcon, Twitter, FileJson, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Collapsible,

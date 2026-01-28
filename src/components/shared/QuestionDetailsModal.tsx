@@ -22,7 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../ui/popover";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface QuestionDetailsModalProps {
   question: ProposedQuestion | null;

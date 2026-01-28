@@ -23,7 +23,7 @@ import { Download, Search } from "lucide-react";
 import { mockAnswers } from "../lib/mock-data";
 import { Answer } from "../lib/types";
 import { formatDateTime } from "../lib/utils";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 export function AnswersExplorer() {
   const [answers] = useState<Answer[]>(mockAnswers);
