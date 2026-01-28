@@ -1,0 +1,32 @@
+# Development files
+*.log
+.DS_Store
+*.local
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__
+__mocks__
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Scripts (not needed for runtime)
+src/scripts/
+
+# Database development
+database/
+prisma/migrations/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
