@@ -29,6 +29,15 @@ export class EmbeddingService {
       return [];
     }
 
+    // Validate all texts are non-empty
+    const emptyIndices = texts
+      .map((text, idx) => (text && text.trim().length > 0 ? null : idx))
+      .filter(idx => idx !== null);
+
+    if (emptyIndices.length > 0) {
+      throw new Error(`Cannot generate embeddings: ${emptyIndices.length} empty text(s) at indices: ${emptyIndices.join(', ')}`);
+    }
+
     const { batchSize, model } = this.config;
     const batches: string[][] = [];
 
@@ -40,14 +49,25 @@ export class EmbeddingService {
     const allEmbeddings: number[][] = [];
 
     // Process each batch
-    for (const batch of batches) {
-      const response = await this.openai.embeddings.create({
-        model,
-        input: batch,
-        encoding_format: 'float',
-      });
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      const batch = batches[batchIdx];
 
-      allEmbeddings.push(...response.data.map(d => d.embedding));
+      try {
+        const response = await this.openai.embeddings.create({
+          model,
+          input: batch,
+          encoding_format: 'float',
+        });
+
+        allEmbeddings.push(...response.data.map(d => d.embedding));
+      } catch (error) {
+        console.error(`Failed to generate embeddings for batch ${batchIdx}:`, {
+          batchSize: batch.length,
+          firstTextPreview: batch[0]?.substring(0, 100),
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
     }
 
     return allEmbeddings;

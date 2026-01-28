@@ -221,12 +221,31 @@ export class IngestionPipeline {
     // Generate embeddings in batches
     const embeddingStartTime = Date.now();
     const chunkTexts = chunks.map(c => c.content);
-    const embeddings = await this.embedder.generateEmbeddings(chunkTexts);
+
+    // Filter out empty or whitespace-only chunks and log for debugging
+    const validChunkTexts = chunkTexts.filter((text, idx) => {
+      const isValid = text && text.trim().length > 0;
+      if (!isValid) {
+        console.warn(`[File: ${file.name}] Chunk ${idx} is empty or whitespace-only, skipping`);
+      }
+      return isValid;
+    });
+
+    if (validChunkTexts.length === 0) {
+      throw new Error('All chunks are empty after filtering');
+    }
+
+    console.log(`[File: ${file.name}] Processing ${validChunkTexts.length} valid chunks (${chunkTexts.length - validChunkTexts.length} filtered out)`);
+
+    const embeddings = await this.embedder.generateEmbeddings(validChunkTexts);
     console.log(`[File: ${file.name}] Embedding generation took ${Date.now() - embeddingStartTime}ms`);
 
     // Store chunks with embeddings
     const dbStartTime = Date.now();
-    const chunkRecords = chunks.map((chunk, idx) => ({
+
+    // Map embeddings back to valid chunks only
+    const validChunks = chunks.filter(c => c.content && c.content.trim().length > 0);
+    const chunkRecords = validChunks.map((chunk, idx) => ({
       id: crypto.randomUUID(),
       document_id: documentId,
       chunk_index: chunk.index,
@@ -255,7 +274,7 @@ export class IngestionPipeline {
       .from('documents')
       .update({
         indexing_status: 'indexed',
-        chunk_count: chunks.length,
+        chunk_count: chunkRecords.length,
         updated_at: new Date().toISOString(),
       })
       .eq('id', documentId);
@@ -263,7 +282,7 @@ export class IngestionPipeline {
     console.log(`[File: ${file.name}] Database operations took ${Date.now() - dbStartTime}ms`);
     console.log(`[File: ${file.name}] Total processing time: ${Date.now() - fileStartTime}ms`);
 
-    return chunks.length;
+    return chunkRecords.length;
   }
 
   private async updateJobStatus(
