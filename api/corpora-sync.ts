@@ -51,7 +51,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         *,
         drive_source:drive_sources(
           id,
-          display_name,
           oauth_credential:oauth_credentials(
             encrypted_access_token,
             encrypted_refresh_token,
