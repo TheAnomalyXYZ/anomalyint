@@ -412,6 +412,7 @@ model Document {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   corpus Corpus  @relation(fields: [corpusId], references: [id], onDelete: Cascade)
+  chunks Chunk[]
 
   @@unique([corpusId, googleDriveFileId])
   @@map("documents")
@@ -421,8 +422,24 @@ model Document {
   @@index([driveModifiedAt])
 }
 
-// Note: Chunk model with vector embeddings is managed via raw SQL
-// Prisma doesn't support pgvector type natively
+// Chunk model with pgvector embeddings
+// Using Unsupported type for vector(1536) - requires pgvector extension
+model Chunk {
+  id          String   @id @default(cuid())
+  documentId  String   @map("document_id")
+  chunkIndex  Int      @map("chunk_index")
+  content     String   @db.Text
+  tokenCount  Int?     @map("token_count")
+  embedding   Unsupported("vector(1536)")?
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("chunks")
+  @@index([documentId])
+  @@index([documentId, chunkIndex])
+}
 
 model IngestionJob {
   id            String   @id @default(cuid())

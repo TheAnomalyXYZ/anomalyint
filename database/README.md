@@ -11,19 +11,16 @@ This guide covers setting up the Supabase PostgreSQL database with pgvector for 
 ## Quick Start
 
 ```bash
-# 1. Enable extensions (run in Supabase SQL Editor)
-# See step 1 below
+# 1. Enable pgvector extension (run SQL in Supabase first - see step 1 below)
+#    database/migrations/001_enable_extensions.sql
 
-# 2. Push Prisma schema to database
+# 2. Push Prisma schema to database (creates all tables including chunks)
 npm run db:push
 
-# 3. Create chunks table with pgvector (run in Supabase SQL Editor)
-# See step 3 below
+# 3. Create vector index and search function (run SQL in Supabase - see step 3 below)
+#    database/migrations/002_vector_index_and_function.sql
 
-# 4. Generate Prisma client
-npm run db:generate
-
-# 5. Verify setup
+# 4. Verify setup
 npm run db:test
 ```
 
@@ -31,75 +28,64 @@ npm run db:test
 
 ## Detailed Setup Steps
 
-### 1. Enable Required Extensions
+### 1. Enable Required Extensions (Manual SQL Required)
 
-Enable pgvector and pgcrypto extensions in Supabase.
+**IMPORTANT:** This step must be done BEFORE running `npm run db:push`.
 
-**Via Supabase Dashboard:**
-1. Go to https://supabase.com/dashboard/project/YOUR_PROJECT_ID/database/extensions
-2. Search for "vector" and enable it
-3. Search for "pgcrypto" and enable it
+Prisma cannot enable PostgreSQL extensions, so you need to run this SQL manually in Supabase:
 
-**Via SQL Editor:**
-1. Go to https://supabase.com/dashboard/project/YOUR_PROJECT_ID/sql/new
-2. Run:
+**Supabase SQL Editor:** https://supabase.com/dashboard/project/poxtygumdxfuxjohfsqh/sql/new
+
+**SQL to run:** Copy contents from `database/migrations/001_enable_extensions.sql`
+
+Or paste directly:
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 ```
 
-### 2. Push Prisma Schema to Database
+This enables:
+- `vector` - pgvector extension for vector embeddings
+- `pgcrypto` - Cryptographic functions for OAuth token encryption
 
-Run this command from your project root:
+### 2. Push Prisma Schema to Database (Claude runs this)
+
+**After enabling extensions**, run:
 
 ```bash
 npm run db:push
 ```
 
-This creates all tables defined in `prisma/schema.prisma`:
+This creates all tables defined in `prisma/schema.prisma`, including:
 - ✅ `oauth_credentials` - OAuth tokens for Google Drive
 - ✅ `drive_sources` - Google Drive connections
 - ✅ `corpora` - Knowledge corpus definitions
 - ✅ `documents` - Indexed files from Drive
+- ✅ `chunks` - Text chunks with vector embeddings ✨
 - ✅ `ingestion_jobs` - Sync job tracking
 - ✅ `retrieval_audit` - RAG query logs
 - ✅ All existing tables (questions, agents, users, etc.)
 
-**Note:** The `chunks` table is NOT created by Prisma because it uses pgvector, which isn't natively supported.
+**Note:** The `chunks` table IS created by Prisma using `Unsupported("vector(1536)")` type, but the HNSW index must be created manually (next step).
 
-### 3. Create chunks Table with pgvector
+### 3. Create Vector Index and Search Function (Manual SQL Required)
 
-Run this SQL in Supabase SQL Editor (https://supabase.com/dashboard/project/YOUR_PROJECT_ID/sql/new):
+**IMPORTANT:** This step must be done AFTER running `npm run db:push`.
 
+Prisma cannot create HNSW indexes or PostgreSQL functions, so you need to run this SQL manually:
+
+**Supabase SQL Editor:** https://supabase.com/dashboard/project/poxtygumdxfuxjohfsqh/sql/new
+
+**SQL to run:** Copy contents from `database/migrations/002_vector_index_and_function.sql`
+
+Or paste directly:
 ```sql
--- Text chunks with vector embeddings
-CREATE TABLE IF NOT EXISTS chunks (
-  id VARCHAR(36) PRIMARY KEY,
-  document_id VARCHAR(36) NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-  chunk_index INT NOT NULL,
-  content TEXT NOT NULL,
-  token_count INT,
-  embedding vector(1536), -- OpenAI text-embedding-3-small dimension
-  metadata JSONB,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
-CREATE INDEX IF NOT EXISTS idx_chunks_index ON chunks(document_id, chunk_index);
-
--- Vector similarity index (HNSW for fast ANN search)
+-- Create HNSW index for fast vector similarity search
 CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks
   USING hnsw (embedding vector_cosine_ops)
   WITH (m = 16, ef_construction = 64);
 
--- Enable Row Level Security
-ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
-
-COMMENT ON TABLE chunks IS 'Text chunks with vector embeddings for semantic search';
-COMMENT ON COLUMN chunks.embedding IS 'OpenAI text-embedding-3-small vector (1536 dimensions)';
-```
-
-### 4. Create Vector Search Function
+-- Create match_chunks function for RAG retrieval
 
 Run this SQL to create the `match_chunks` function for RAG retrieval:
 
@@ -137,15 +123,9 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-### 5. Generate Prisma Client
+**Note:** Prisma automatically regenerates the client after `db:push`, so no need to run `db:generate` separately.
 
-Generate the Prisma client with the latest schema:
-
-```bash
-npm run db:generate
-```
-
-### 6. Verify Setup
+### 4. Verify Setup
 
 Run this query in Supabase SQL Editor to verify all tables exist:
 
