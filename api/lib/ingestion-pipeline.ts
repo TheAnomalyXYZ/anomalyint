@@ -107,9 +107,9 @@ export class IngestionPipeline {
         await this.updateJobProgress(jobId, 'processing_files', i + 1, supportedFiles.length);
       }
 
-      // Update corpus
+      // Update corpus and job status
       const hasMoreFiles = filesToProcess.length < supportedFiles.length;
-      const syncStatus = hasMoreFiles ? 'running' : 'completed';
+      const corpusStatus = hasMoreFiles ? 'running' : 'completed';
 
       const stats: SyncStats = {
         files_processed: successCount,
@@ -119,10 +119,12 @@ export class IngestionPipeline {
         errors,
       };
 
-      console.log(`Batch complete. Status: ${syncStatus}, Processed: ${filesToProcess.length}/${supportedFiles.length}`);
+      console.log(`Batch complete. Corpus status: ${corpusStatus}, Processed: ${filesToProcess.length}/${supportedFiles.length}`);
 
-      await this.updateCorpusSync(corpusId, syncStatus, stats);
-      await this.updateJobStatus(jobId, syncStatus, stats);
+      // Always mark the job as completed (this batch is done)
+      // Corpus status can be 'running' (more batches needed) or 'completed' (all done)
+      await this.updateCorpusSync(corpusId, corpusStatus, stats);
+      await this.updateJobStatus(jobId, 'completed', stats);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Sync failed:', error);
