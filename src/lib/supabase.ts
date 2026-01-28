@@ -598,8 +598,8 @@ function convertDbCorpus(dbCorpus: any): any {
     updatedAt: new Date(dbCorpus.updated_at),
     drive_source: dbCorpus.drive_source ? {
       id: dbCorpus.drive_source.id,
-      displayName: dbCorpus.drive_source.display_name,
-      googleAccountEmail: dbCorpus.drive_source.google_account_email,
+      displayName: dbCorpus.drive_source.displayName,
+      googleAccountEmail: dbCorpus.drive_source.googleAccountEmail,
       oauth_credential: dbCorpus.drive_source.oauth_credential,
     } : undefined,
     brand_profile: dbCorpus.brand_profile,
@@ -615,8 +615,8 @@ export const corporaApi = {
           *,
           drive_source:drive_sources(
             id,
-            display_name,
-            google_account_email,
+            displayName,
+            googleAccountEmail,
             oauth_credential:oauth_credentials(
               token_expires_at
             )
