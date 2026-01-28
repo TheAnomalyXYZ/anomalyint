@@ -6,7 +6,7 @@ import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Corpus, IngestionJob, SyncStatus, BrandProfile } from '../lib/types';
 import { profilesApi, corporaApi } from '../lib/supabase';
@@ -16,6 +16,7 @@ export function KnowledgeCorpus() {
   const [jobs, setJobs] = useState<Map<string, IngestionJob>>(new Map());
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<Set<string>>(new Set());
+  const [clearing, setClearing] = useState<Set<string>>(new Set());
   const [settingUp, setSettingUp] = useState(false);
   const [profiles, setProfiles] = useState<BrandProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
@@ -145,6 +146,47 @@ export function KnowledgeCorpus() {
         return next;
       });
       toast.error(error instanceof Error ? error.message : 'Failed to start sync');
+    }
+  };
+
+  const handleClear = async (corpusId: string) => {
+    if (!confirm('Are you sure you want to clear all ingestion jobs and reset this corpus? This will delete all indexed documents and chunks.')) {
+      return;
+    }
+
+    try {
+      setClearing(prev => new Set(prev).add(corpusId));
+
+      const response = await fetch('/api/corpora-clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ corpus_id: corpusId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || error.error || 'Failed to clear corpus');
+      }
+
+      toast.success('Corpus cleared successfully');
+
+      // Clear local job state
+      setJobs(prev => {
+        const next = new Map(prev);
+        next.delete(corpusId);
+        return next;
+      });
+
+      // Reload corpora to show updated state
+      await loadCorpora();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to clear corpus');
+    } finally {
+      setClearing(prev => {
+        const next = new Set(prev);
+        next.delete(corpusId);
+        return next;
+      });
     }
   };
 
@@ -441,6 +483,7 @@ export function KnowledgeCorpus() {
           {corpora.map(corpus => {
             const job = jobs.get(corpus.id);
             const isRunning = corpus.syncStatus === 'running' || syncing.has(corpus.id);
+            const isClearing = clearing.has(corpus.id);
 
             return (
               <Card key={corpus.id}>
@@ -456,12 +499,22 @@ export function KnowledgeCorpus() {
                       {getStatusBadge(corpus.syncStatus)}
                       <Button
                         onClick={() => handleSync(corpus.id)}
-                        disabled={isRunning}
+                        disabled={isRunning || isClearing}
                         size="sm"
                         variant="outline"
                       >
                         <RefreshCw className={`h-4 w-4 mr-2 ${isRunning ? 'animate-spin' : ''}`} />
                         Sync Now
+                      </Button>
+                      <Button
+                        onClick={() => handleClear(corpus.id)}
+                        disabled={isRunning || isClearing}
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className={`h-4 w-4 mr-2 ${isClearing ? 'animate-pulse' : ''}`} />
+                        Clear
                       </Button>
                     </div>
                   </div>
