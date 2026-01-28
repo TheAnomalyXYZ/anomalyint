@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleDriveService } from '../../src/lib/google-drive';
-import { IngestionPipeline } from '../../src/lib/ingestion-pipeline';
+import { GoogleDriveService } from '../lib/google-drive';
+import { IngestionPipeline } from '../lib/ingestion-pipeline';
 import crypto from 'crypto';
 
 // Get environment variables
