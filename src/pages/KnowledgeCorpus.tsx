@@ -120,7 +120,7 @@ export function KnowledgeCorpus() {
       setSyncing(prev => new Set(prev).add(corpusId));
 
       // Call the actual Vercel API endpoint to trigger file processing
-      const response = await fetch('/api/corpora/sync', {
+      const response = await fetch('/api/corpora-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ corpus_id: corpusId }),
