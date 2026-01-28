@@ -321,8 +321,142 @@ model BrandProfile {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
+  corpora Corpus[]
+
   @@map("brand_profiles")
   @@index([name])
+  @@index([createdAt])
+}
+
+// Knowledge Corpus Models for RAG
+
+model OAuthCredential {
+  id                      String   @id @default(cuid())
+  ownerUserId             String?  @map("owner_user_id")
+  provider                String   @db.VarChar(50)
+  encryptedAccessToken    String   @map("encrypted_access_token") @db.Text
+  encryptedRefreshToken   String?  @map("encrypted_refresh_token") @db.Text
+  tokenExpiresAt          DateTime? @map("token_expires_at")
+  scope                   String[] @default([])
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  driveSources DriveSource[]
+
+  @@map("oauth_credentials")
+  @@index([ownerUserId])
+  @@index([provider])
+}
+
+model DriveSource {
+  id                  String   @id @default(cuid())
+  ownerUserId         String?  @map("owner_user_id")
+  oauthCredentialId   String   @map("oauth_credential_id")
+  displayName         String   @db.VarChar(255)
+  googleAccountEmail  String?  @db.VarChar(255)
+  lastVerifiedAt      DateTime? @map("last_verified_at")
+  status              String   @default("active") @db.VarChar(50)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  oauthCredential OAuthCredential @relation(fields: [oauthCredentialId], references: [id], onDelete: Cascade)
+  corpora         Corpus[]
+
+  @@map("drive_sources")
+  @@index([ownerUserId])
+  @@index([oauthCredentialId])
+}
+
+model Corpus {
+  id                    String   @id @default(cuid())
+  ownerUserId           String?  @map("owner_user_id")
+  brandProfileId        String?  @map("brand_profile_id")
+  driveSourceId         String   @map("drive_source_id")
+  name                  String   @db.VarChar(255)
+  description           String?  @db.Text
+  googleDriveFolderId   String   @map("google_drive_folder_id") @db.VarChar(255)
+  syncStatus            String   @default("idle") @map("sync_status") @db.VarChar(50)
+  lastSyncAt            DateTime? @map("last_sync_at")
+  lastSyncStats         Json?    @map("last_sync_stats")
+  syncConfig            Json     @default("{\"recursive\": true}") @map("sync_config")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  driveSource     DriveSource      @relation(fields: [driveSourceId], references: [id], onDelete: Cascade)
+  brandProfile    BrandProfile?    @relation(fields: [brandProfileId], references: [id], onDelete: SetNull)
+  documents       Document[]
+  ingestionJobs   IngestionJob[]
+  retrievalAudits RetrievalAudit[]
+
+  @@map("corpora")
+  @@index([ownerUserId])
+  @@index([brandProfileId])
+  @@index([driveSourceId])
+  @@index([syncStatus])
+}
+
+model Document {
+  id                String   @id @default(cuid())
+  corpusId          String   @map("corpus_id")
+  googleDriveFileId String   @map("google_drive_file_id") @db.VarChar(255)
+  fileName          String   @map("file_name") @db.VarChar(500)
+  fileType          String?  @map("file_type") @db.VarChar(100)
+  filePath          String?  @map("file_path") @db.Text
+  fileSizeBytes     BigInt?  @map("file_size_bytes")
+  driveModifiedAt   DateTime? @map("drive_modified_at")
+  contentHash       String?  @map("content_hash") @db.VarChar(64)
+  indexingStatus    String   @default("pending") @map("indexing_status") @db.VarChar(50)
+  indexingError     String?  @map("indexing_error") @db.Text
+  chunkCount        Int      @default(0) @map("chunk_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  corpus Corpus  @relation(fields: [corpusId], references: [id], onDelete: Cascade)
+
+  @@unique([corpusId, googleDriveFileId])
+  @@map("documents")
+  @@index([corpusId])
+  @@index([googleDriveFileId])
+  @@index([indexingStatus])
+  @@index([driveModifiedAt])
+}
+
+// Note: Chunk model with vector embeddings is managed via raw SQL
+// Prisma doesn't support pgvector type natively
+
+model IngestionJob {
+  id            String   @id @default(cuid())
+  corpusId      String   @map("corpus_id")
+  status        String   @default("pending") @db.VarChar(50)
+  startedAt     DateTime? @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  progress      Json     @default("{\"stage\": \"initializing\", \"current\": 0, \"total\": 0}") @map("progress")
+  stats         Json?    @map("stats")
+  errorMessage  String?  @map("error_message") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  corpus Corpus @relation(fields: [corpusId], references: [id], onDelete: Cascade)
+
+  @@map("ingestion_jobs")
+  @@index([corpusId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model RetrievalAudit {
+  id            String   @id @default(cuid())
+  corpusId      String   @map("corpus_id")
+  queryText     String   @map("query_text") @db.Text
+  topK          Int      @default(5) @map("top_k")
+  results       Json?    @map("results")
+  latencyMs     Int?     @map("latency_ms")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  corpus Corpus @relation(fields: [corpusId], references: [id], onDelete: Cascade)
+
+  @@map("retrieval_audit")
+  @@index([corpusId])
   @@index([createdAt])
 }
 

@@ -581,6 +581,230 @@ function convertDbProfile(dbProfile: any): BrandProfile {
   };
 }
 
+// Helper function to convert database corpus to our Corpus type
+function convertDbCorpus(dbCorpus: any): any {
+  return {
+    id: dbCorpus.id,
+    name: dbCorpus.name,
+    description: dbCorpus.description,
+    brandProfileId: dbCorpus.brand_profile_id,
+    driveSourceId: dbCorpus.drive_source_id,
+    googleDriveFolderId: dbCorpus.google_drive_folder_id,
+    syncStatus: dbCorpus.sync_status,
+    lastSyncAt: dbCorpus.last_sync_at ? new Date(dbCorpus.last_sync_at) : undefined,
+    lastSyncStats: dbCorpus.last_sync_stats,
+    syncConfig: dbCorpus.sync_config,
+    createdAt: new Date(dbCorpus.created_at),
+    updatedAt: new Date(dbCorpus.updated_at),
+    drive_source: dbCorpus.drive_source,
+    brand_profile: dbCorpus.brand_profile,
+  };
+}
+
+export const corporaApi = {
+  async getCorpora() {
+    try {
+      const { data, error } = await supabase
+        .from('corpora')
+        .select(`
+          *,
+          drive_source:drive_sources(
+            id,
+            displayName,
+            googleAccountEmail,
+            status
+          ),
+          brand_profile:brand_profiles(
+            id,
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching corpora:', error);
+        return [];
+      }
+
+      return (data || []).map(convertDbCorpus);
+    } catch (error) {
+      console.error('Error fetching corpora:', error);
+      return [];
+    }
+  },
+
+  async setupCorpus(params: {
+    access_token: string;
+    refresh_token: string;
+    google_drive_folder_id: string;
+    corpus_name: string;
+    corpus_description: string;
+    google_account_email: string;
+    brand_profile_id?: string;
+  }) {
+    try {
+      const now = new Date().toISOString();
+
+      // 1. Create OAuth credentials
+      const oauthId = crypto.randomUUID();
+      const { error: oauthError } = await supabase
+        .from('oauth_credentials')
+        .insert({
+          id: oauthId,
+          provider: 'google',
+          encrypted_access_token: params.access_token,
+          encrypted_refresh_token: params.refresh_token,
+          token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+          scope: ['https://www.googleapis.com/auth/drive.readonly'],
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (oauthError) {
+        throw new Error(`Failed to create OAuth credentials: ${oauthError.message}`);
+      }
+
+      // 2. Create drive source
+      const driveSourceId = crypto.randomUUID();
+      const { error: driveSourceError } = await supabase
+        .from('drive_sources')
+        .insert({
+          id: driveSourceId,
+          oauth_credential_id: oauthId,
+          displayName: 'My Google Drive',
+          googleAccountEmail: params.google_account_email || null,
+          status: 'active',
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (driveSourceError) {
+        throw new Error(`Failed to create drive source: ${driveSourceError.message}`);
+      }
+
+      // 3. Create corpus
+      const corpusId = crypto.randomUUID();
+      const { error: corpusError } = await supabase
+        .from('corpora')
+        .insert({
+          id: corpusId,
+          drive_source_id: driveSourceId,
+          brand_profile_id: params.brand_profile_id || null,
+          name: params.corpus_name,
+          description: params.corpus_description,
+          google_drive_folder_id: params.google_drive_folder_id,
+          sync_status: 'idle',
+          sync_config: { recursive: true },
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (corpusError) {
+        throw new Error(`Failed to create corpus: ${corpusError.message}`);
+      }
+
+      // Fetch the created corpus with relations
+      const { data: corpus, error: fetchError } = await supabase
+        .from('corpora')
+        .select(`
+          *,
+          drive_source:drive_sources(
+            id,
+            displayName,
+            googleAccountEmail
+          ),
+          brand_profile:brand_profiles(
+            id,
+            name
+          )
+        `)
+        .eq('id', corpusId)
+        .single();
+
+      if (fetchError || !corpus) {
+        throw new Error(`Failed to fetch created corpus: ${fetchError?.message || 'Unknown error'}`);
+      }
+
+      return convertDbCorpus(corpus);
+    } catch (error) {
+      console.error('Error setting up corpus:', error);
+      throw error;
+    }
+  },
+
+  async syncCorpus(corpusId: string) {
+    try {
+      // Check if corpus exists and get its details
+      const { data: corpus, error: corpusError } = await supabase
+        .from('corpora')
+        .select('id, sync_status')
+        .eq('id', corpusId)
+        .single();
+
+      if (corpusError || !corpus) {
+        throw new Error('Corpus not found');
+      }
+
+      if (corpus.sync_status === 'running') {
+        throw new Error('Sync already in progress');
+      }
+
+      // Create an ingestion job
+      const jobId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error: jobError } = await supabase
+        .from('ingestion_jobs')
+        .insert({
+          id: jobId,
+          corpus_id: corpusId,
+          status: 'pending',
+          progress: { stage: 'initializing', current: 0, total: 0 },
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (jobError) {
+        throw new Error(`Failed to create job: ${jobError.message}`);
+      }
+
+      // Update corpus status to running
+      const { error: updateError } = await supabase
+        .from('corpora')
+        .update({ sync_status: 'running', updated_at: now })
+        .eq('id', corpusId);
+
+      if (updateError) {
+        throw new Error(`Failed to update corpus status: ${updateError.message}`);
+      }
+
+      return { job_id: jobId };
+    } catch (error) {
+      console.error('Error starting sync:', error);
+      throw error;
+    }
+  },
+
+  async getIngestionJob(jobId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('ingestion_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+      if (error || !data) {
+        throw new Error('Job not found');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching job:', error);
+      throw error;
+    }
+  },
+};
+
 export const profilesApi = {
   async getProfiles(): Promise<BrandProfile[]> {
     try {

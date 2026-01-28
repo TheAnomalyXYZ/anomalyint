@@ -6,6 +6,7 @@ import { ManageQuestions } from "./pages/ManageQuestions";
 import { Profiles } from "./pages/Profiles";
 import { TrackedContent } from "./pages/TrackedContent";
 import { Agents } from "./pages/Agents";
+import { KnowledgeCorpus } from "./pages/KnowledgeCorpus";
 import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
 import { TwitterSettings } from "./pages/TwitterSettings";
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/profiles" element={<Profiles />} />
           <Route path="/tracked-content" element={<TrackedContent />} />
           <Route path="/agents" element={<Agents />} />
+          <Route path="/knowledge-corpus" element={<KnowledgeCorpus />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/sources/twitter" element={<TwitterSettings />} />

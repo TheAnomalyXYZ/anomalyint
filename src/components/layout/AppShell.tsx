@@ -25,6 +25,7 @@ import {
   Building2,
   ChevronUp,
   MessageCircle,
+  Database,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -51,6 +52,7 @@ const navigation = [
       { id: "profiles", label: "Profiles", icon: Building2, path: "/profiles" },
       { id: "tracked-content", label: "Tracked Content", icon: MessageCircle, path: "/tracked-content" },
       { id: "agents", label: "AI Agents", icon: Bot, path: "/agents" },
+      { id: "knowledge-corpus", label: "Knowledge Corpus", icon: Database, path: "/knowledge-corpus" },
     ],
   },
   {
@@ -151,10 +153,6 @@ export function AppShell({ children }: AppShellProps) {
               <Input placeholder="Search questions, suggestions..." className="pl-10" />
             </div>
           </div>
-          <Button size="sm" className="gradient-primary text-white border-0">
-            <Plus className="h-4 w-4 mr-2" />
-            New
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">

@@ -193,3 +193,75 @@ export interface BrandProfile {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Knowledge Corpus Types for RAG
+export type SyncStatus = 'idle' | 'running' | 'completed' | 'error';
+
+export interface DriveSource {
+  id: string;
+  displayName: string;
+  googleAccountEmail?: string;
+  status: string;
+}
+
+export interface SyncStats {
+  files_processed: number;
+  files_failed: number;
+  total_files: number;
+  total_chunks?: number;
+  errors?: string[];
+}
+
+export interface Corpus {
+  id: string;
+  name: string;
+  description?: string;
+  brandProfileId?: string;
+  driveSourceId: string;
+  googleDriveFolderId: string;
+  syncStatus: SyncStatus;
+  lastSyncAt?: Date;
+  lastSyncStats?: SyncStats;
+  syncConfig?: {
+    recursive?: boolean;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+  // Populated from join
+  drive_source?: DriveSource;
+  brand_profile?: {
+    id: string;
+    name: string;
+  };
+}
+
+export type IngestionJobStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface IngestionProgress {
+  stage: string;
+  current: number;
+  total: number;
+}
+
+export interface IngestionJob {
+  id: string;
+  corpusId: string;
+  status: IngestionJobStatus;
+  progress: IngestionProgress;
+  stats?: SyncStats;
+  errorMessage?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SearchResult {
+  chunk_id: string;
+  document_id: string;
+  content: string;
+  similarity: number;
+  metadata: Record<string, any>;
+  file_name: string;
+  file_path?: string;
+}
