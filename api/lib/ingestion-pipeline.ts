@@ -43,11 +43,12 @@ export class IngestionPipeline {
     this.embedder = new EmbeddingService(config.openaiApiKey);
   }
 
-  async runSync(corpusId: string, folderId: string, jobId: string): Promise<void> {
+  async runSync(corpusId: string, folderId: string, jobId: string, batchSize: number = 3): Promise<void> {
     let successCount = 0;
     let failedCount = 0;
     let totalChunks = 0;
     const errors: string[] = [];
+    const BATCH_SIZE = batchSize; // Process only this many files per invocation
 
     try {
       // Update job to running
@@ -79,13 +80,17 @@ export class IngestionPipeline {
         return;
       }
 
-      // Stage 2: Process files
+      // Stage 2: Process files (in batches to avoid timeout)
       await this.updateJobProgress(jobId, 'processing_files', 0, supportedFiles.length);
 
-      for (let i = 0; i < supportedFiles.length; i++) {
-        const file = supportedFiles[i];
+      const filesToProcess = supportedFiles.slice(0, BATCH_SIZE);
+      console.log(`Processing batch of ${filesToProcess.length} files out of ${supportedFiles.length} total`);
+
+      for (let i = 0; i < filesToProcess.length; i++) {
+        const file = filesToProcess[i];
 
         try {
+          console.log(`Processing file ${i + 1}/${filesToProcess.length}: ${file.name}`);
           const chunkCount = await this.processFile(file, corpusId);
           totalChunks += chunkCount;
           successCount++;
@@ -100,6 +105,9 @@ export class IngestionPipeline {
       }
 
       // Update corpus
+      const hasMoreFiles = filesToProcess.length < supportedFiles.length;
+      const syncStatus = hasMoreFiles ? 'running' : 'completed';
+
       const stats: SyncStats = {
         files_processed: successCount,
         files_failed: failedCount,
@@ -108,8 +116,10 @@ export class IngestionPipeline {
         errors,
       };
 
-      await this.updateCorpusSync(corpusId, 'completed', stats);
-      await this.updateJobStatus(jobId, 'completed', stats);
+      console.log(`Batch complete. Status: ${syncStatus}, Processed: ${filesToProcess.length}/${supportedFiles.length}`);
+
+      await this.updateCorpusSync(corpusId, syncStatus, stats);
+      await this.updateJobStatus(jobId, syncStatus, stats);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Sync failed:', error);
