@@ -39,10 +39,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Search for relevant chunks using vector similarity
     console.log('[RAG Chat] Searching for relevant chunks in corpus:', corpus_id);
+    console.log('[RAG Chat] Query embedding length:', queryEmbedding[0].length);
+    console.log('[RAG Chat] Query embedding sample (first 5 dims):', queryEmbedding[0].slice(0, 5));
+
+    // Try passing the embedding as a raw array instead of string
     const { data: chunks, error: searchError } = await supabase.rpc('match_chunks', {
-      query_embedding: queryEmbedding[0], // Pass array directly, not JSON string
+      query_embedding: queryEmbedding[0], // Pass as raw array
       filter_corpus_id: corpus_id,
-      match_threshold: 0.6, // Lower threshold for better recall
+      match_threshold: 0.3, // Lowered threshold for testing
       match_count: 5,
     });
 
