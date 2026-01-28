@@ -14,11 +14,15 @@ export class GoogleDriveService {
   private auth: any;
 
   constructor(accessToken: string, refreshToken?: string) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      console.warn('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set - token refresh will not work');
+    }
+
     // Use OAuth2 client with refresh token support
-    this.auth = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    );
+    this.auth = new google.auth.OAuth2(clientId, clientSecret);
 
     this.auth.setCredentials({
       access_token: accessToken,
@@ -42,13 +46,15 @@ export class GoogleDriveService {
     const files: DriveFile[] = [];
     let pageToken: string | undefined;
 
-    do {
-      const response = await this.drive.files.list({
-        q: `'${folderId}' in parents and trashed = false`,
-        fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size)',
-        pageSize: 100,
-        pageToken,
-      });
+    try {
+      do {
+        console.log(`Listing files in folder ${folderId}, page token: ${pageToken || 'none'}`);
+        const response = await this.drive.files.list({
+          q: `'${folderId}' in parents and trashed = false`,
+          fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size)',
+          pageSize: 100,
+          pageToken,
+        });
 
       const currentFiles = response.data.files || [];
 
@@ -72,9 +78,16 @@ export class GoogleDriveService {
         const subFiles = await this.listFilesInFolder(folder.id, subPath);
         files.push(...subFiles);
       }
-    } while (pageToken);
+      } while (pageToken);
 
-    return files;
+      return files;
+    } catch (error) {
+      console.error('Error listing files in Google Drive:', error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to list Drive files: ${error.message}`);
+      }
+      throw new Error('Failed to list Drive files: Unknown error');
+    }
   }
 
   async exportGoogleDoc(fileId: string): Promise<string> {
