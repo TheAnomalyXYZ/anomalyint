@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Separator } from "../ui/separator";
+import { RagChatButton } from "../shared/RagChatButton";
 
 interface AppShellProps {
   children: ReactNode;
@@ -171,6 +172,9 @@ export function AppShell({ children }: AppShellProps) {
         </header>
         <main className="flex-1 p-6">{children}</main>
       </SidebarInset>
+
+      {/* Floating RAG Chat Button */}
+      <RagChatButton />
     </SidebarProvider>
   );
 }
