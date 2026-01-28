@@ -149,13 +149,27 @@ export function KnowledgeCorpus() {
     }
   };
 
-  const handleClear = async (corpusId: string) => {
-    if (!confirm('Are you sure you want to clear all ingestion jobs and reset this corpus? This will delete all indexed documents and chunks.')) {
+  const handleClear = async (corpusId: string, isCurrentlySyncing: boolean) => {
+    // Different confirmation messages based on whether sync is running
+    const confirmMessage = isCurrentlySyncing
+      ? 'Stop the current sync and reset to idle? Partial progress will be saved.'
+      : 'Are you sure you want to clear all ingestion jobs and reset this corpus? This will delete all indexed documents and chunks.';
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     try {
       setClearing(prev => new Set(prev).add(corpusId));
+
+      // If stopping a sync, also clear the syncing state
+      if (isCurrentlySyncing) {
+        setSyncing(prev => {
+          const next = new Set(prev);
+          next.delete(corpusId);
+          return next;
+        });
+      }
 
       const response = await fetch('/api/corpora-clear', {
         method: 'POST',
@@ -168,7 +182,7 @@ export function KnowledgeCorpus() {
         throw new Error(error.message || error.error || 'Failed to clear corpus');
       }
 
-      toast.success('Corpus cleared successfully');
+      toast.success(isCurrentlySyncing ? 'Sync stopped and corpus reset' : 'Corpus cleared successfully');
 
       // Clear local job state
       setJobs(prev => {
@@ -507,14 +521,14 @@ export function KnowledgeCorpus() {
                         Sync Now
                       </Button>
                       <Button
-                        onClick={() => handleClear(corpus.id)}
-                        disabled={isRunning || isClearing}
+                        onClick={() => handleClear(corpus.id, isRunning)}
+                        disabled={isClearing}
                         size="sm"
                         variant="outline"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className={`h-4 w-4 mr-2 ${isClearing ? 'animate-pulse' : ''}`} />
-                        Clear
+                        {isRunning ? 'Stop' : 'Clear'}
                       </Button>
                     </div>
                   </div>
