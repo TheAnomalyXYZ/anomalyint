@@ -160,10 +160,12 @@ export class IngestionPipeline {
       extractedText = this.textExtractor.extractFromText(buffer);
     }
 
-    console.log(`[File: ${file.name}] Text extraction took ${Date.now() - extractStartTime}ms`);
+    console.log(`[File: ${file.name}] Text extraction took ${Date.now() - extractStartTime}ms, extracted ${extractedText?.length || 0} characters`);
 
     // Normalize text
     extractedText = this.textExtractor.normalizeText(extractedText);
+
+    console.log(`[File: ${file.name}] After normalization: ${extractedText?.length || 0} characters, preview: ${extractedText?.substring(0, 200)}`);
 
     if (!extractedText || extractedText.trim().length === 0) {
       throw new Error('No text content extracted');
@@ -218,6 +220,15 @@ export class IngestionPipeline {
       throw new Error('No chunks generated from text');
     }
 
+    // Log first few chunks for debugging
+    console.log(`[File: ${file.name}] First chunk sample:`, {
+      index: chunks[0]?.index,
+      contentType: typeof chunks[0]?.content,
+      contentLength: chunks[0]?.content?.length,
+      contentPreview: chunks[0]?.content?.substring(0, 100),
+      tokenCount: chunks[0]?.tokenCount,
+    });
+
     // Generate embeddings in batches
     const embeddingStartTime = Date.now();
     const chunkTexts = chunks.map(c => c.content);
@@ -233,7 +244,7 @@ export class IngestionPipeline {
       // Then check if empty
       const isValid = text.trim().length > 0;
       if (!isValid) {
-        console.warn(`[File: ${file.name}] Chunk ${idx} is empty or whitespace-only, skipping`);
+        console.warn(`[File: ${file.name}] Chunk ${idx} is empty or whitespace-only (length: ${text.length}), skipping`);
       }
       return isValid;
     });
