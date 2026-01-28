@@ -23,19 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { data, error } = await supabase
         .from('corpora')
-        .select(`
-          *,
-          drive_source:drive_sources(
-            id,
-            display_name,
-            google_account_email,
-            status
-          ),
-          brand_profile:brand_profiles(
-            id,
-            name
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -103,14 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           created_at: now,
           updated_at: now,
         })
-        .select(`
-          *,
-          drive_source:drive_sources(
-            id,
-            display_name,
-            google_account_email
-          )
-        `)
+        .select('*')
         .single();
 
       if (error) {
