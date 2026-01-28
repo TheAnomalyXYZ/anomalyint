@@ -236,6 +236,24 @@ export function KnowledgeCorpus() {
     );
   };
 
+  const getTokenStatus = (corpus: Corpus) => {
+    if (!corpus.drive_source?.oauth_credential?.token_expires_at) {
+      return { isExpired: true, message: 'No OAuth token' };
+    }
+
+    const expiresAt = new Date(corpus.drive_source.oauth_credential.token_expires_at);
+    const now = new Date();
+    const isExpired = expiresAt <= now;
+
+    return {
+      isExpired,
+      expiresAt,
+      message: isExpired
+        ? 'OAuth token expired - please re-authenticate'
+        : `Token valid until ${expiresAt.toLocaleString('en-US', { timeZone: 'America/Toronto' })}`,
+    };
+  };
+
   const formatDate = (date?: Date) => {
     if (!date) return 'Never';
     return new Date(date).toLocaleString('en-US', {
@@ -432,6 +450,21 @@ export function KnowledgeCorpus() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
+                  {/* OAuth Token Status */}
+                  {(() => {
+                    const tokenStatus = getTokenStatus(corpus);
+                    return (
+                      <div className={`flex items-center gap-2 text-sm p-2 rounded ${tokenStatus.isExpired ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                        {tokenStatus.isExpired ? (
+                          <AlertCircle className="h-4 w-4" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        <span>{tokenStatus.message}</span>
+                      </div>
+                    );
+                  })()}
+
                   <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                     {/* Brand profile info */}
                     {corpus.brand_profile && (

@@ -202,6 +202,9 @@ export interface DriveSource {
   displayName: string;
   googleAccountEmail?: string;
   status: string;
+  oauth_credential?: {
+    token_expires_at: string;
+  };
 }
 
 export interface SyncStats {

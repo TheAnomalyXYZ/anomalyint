@@ -606,7 +606,15 @@ export const corporaApi = {
     try {
       const { data, error} = await supabase
         .from('corpora')
-        .select('*')
+        .select(`
+          *,
+          drive_source:drive_sources(
+            id,
+            oauth_credential:oauth_credentials(
+              token_expires_at
+            )
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
