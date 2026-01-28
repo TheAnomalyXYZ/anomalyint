@@ -66,28 +66,44 @@ export class IngestionPipeline {
         GoogleDriveService.isSupportedFile(f.mimeType)
       );
 
-      if (supportedFiles.length === 0) {
+      // Filter out already-indexed files to avoid reprocessing
+      const { data: indexedDocs } = await this.supabase
+        .from('documents')
+        .select('google_drive_file_id')
+        .eq('corpus_id', corpusId)
+        .eq('indexing_status', 'indexed');
+
+      const indexedFileIds = new Set((indexedDocs || []).map(d => d.google_drive_file_id));
+      const unprocessedFiles = supportedFiles.filter(f => !indexedFileIds.has(f.id));
+
+      console.log(`[${jobId}] Total supported files: ${supportedFiles.length}, Already indexed: ${indexedFileIds.size}, Remaining: ${unprocessedFiles.length}`);
+
+      if (unprocessedFiles.length === 0) {
+        // All files already processed - mark as completed
+        const totalIndexed = indexedFileIds.size;
         await this.updateJobStatus(jobId, 'completed', {
-          files_processed: 0,
+          files_processed: totalIndexed,
           files_failed: 0,
-          total_files: 0,
+          total_files: supportedFiles.length,
           total_chunks: 0,
-          errors: ['No supported files found in folder'],
+          errors: [],
         });
         await this.updateCorpusSync(corpusId, 'completed', {
-          files_processed: 0,
+          files_processed: totalIndexed,
           files_failed: 0,
-          total_files: 0,
-          errors: ['No supported files found'],
+          total_files: supportedFiles.length,
+          total_chunks: 0,
+          errors: [],
         });
+        console.log(`[${jobId}] All files already indexed - sync complete`);
         return;
       }
 
       // Stage 2: Process files (in batches to avoid timeout)
       await this.updateJobProgress(jobId, 'processing_files', 0, supportedFiles.length);
 
-      const filesToProcess = supportedFiles.slice(0, BATCH_SIZE);
-      console.log(`Processing batch of ${filesToProcess.length} files out of ${supportedFiles.length} total`);
+      const filesToProcess = unprocessedFiles.slice(0, BATCH_SIZE);
+      console.log(`Processing batch of ${filesToProcess.length} files out of ${unprocessedFiles.length} remaining (${supportedFiles.length} total)`);
 
       for (let i = 0; i < filesToProcess.length; i++) {
         const file = filesToProcess[i];
@@ -108,18 +124,20 @@ export class IngestionPipeline {
       }
 
       // Update corpus and job status
-      const hasMoreFiles = filesToProcess.length < supportedFiles.length;
+      const hasMoreFiles = filesToProcess.length < unprocessedFiles.length;
       const corpusStatus = hasMoreFiles ? 'running' : 'completed';
 
+      // Calculate cumulative stats (already indexed + newly processed)
+      const totalProcessed = indexedFileIds.size + successCount;
       const stats: SyncStats = {
-        files_processed: successCount,
+        files_processed: totalProcessed,
         files_failed: failedCount,
         total_files: supportedFiles.length,
         total_chunks: totalChunks,
         errors,
       };
 
-      console.log(`Batch complete. Corpus status: ${corpusStatus}, Processed: ${filesToProcess.length}/${supportedFiles.length}`);
+      console.log(`Batch complete. Corpus status: ${corpusStatus}, Processed: ${totalProcessed}/${supportedFiles.length} (${successCount} in this batch)`);
 
       // Always mark the job as completed (this batch is done)
       // Corpus status can be 'running' (more batches needed) or 'completed' (all done)
