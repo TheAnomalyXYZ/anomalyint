@@ -36,7 +36,8 @@
       "Bash(npx prisma db push:*)",
       "Bash(pkill:*)",
       "Bash(supabase --version:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
