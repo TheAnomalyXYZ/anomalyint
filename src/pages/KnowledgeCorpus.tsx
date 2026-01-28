@@ -155,7 +155,31 @@ export function KnowledgeCorpus() {
 
         setJobs(prev => new Map(prev).set(corpusId, job as IngestionJob));
 
-        if (job.status === 'completed' || job.status === 'failed') {
+        if (job.status === 'completed') {
+          clearInterval(intervalId);
+
+          // Reload corpora to check if sync_status is still 'running'
+          await loadCorpora();
+
+          // Check if corpus needs another batch
+          const corpus = corpora.find(c => c.id === corpusId);
+          if (corpus && corpus.syncStatus === 'running') {
+            // Trigger another sync for the next batch
+            console.log('Triggering next batch for corpus:', corpusId);
+            handleSync(corpusId);
+          } else {
+            // All done
+            setSyncing(prev => {
+              const next = new Set(prev);
+              next.delete(corpusId);
+              return next;
+            });
+            toast.success(`Sync completed! ${job.stats?.files_processed || 0} files processed.`);
+          }
+          return;
+        }
+
+        if (job.status === 'failed') {
           clearInterval(intervalId);
           setSyncing(prev => {
             const next = new Set(prev);
@@ -163,14 +187,7 @@ export function KnowledgeCorpus() {
             return next;
           });
           loadCorpora();
-
-          if (job.status === 'completed') {
-            const filesProcessed = job.stats?.files_processed || 0;
-            const chunksCreated = job.stats?.total_chunks || 0;
-            toast.success(`Sync completed! ${filesProcessed} files indexed (${chunksCreated} chunks).`);
-          } else {
-            toast.error(`Sync failed: ${job.error_message || 'Unknown error'}`);
-          }
+          toast.error(`Sync failed: ${job.error_message || 'Unknown error'}`);
         }
       } catch (error) {
         console.error('Error polling job status:', error);
