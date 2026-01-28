@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleDriveService } from '../lib/google-drive.js';
-import { IngestionPipeline } from '../lib/ingestion-pipeline.js';
+import { GoogleDriveService } from './lib/google-drive.js';
+import { IngestionPipeline } from './lib/ingestion-pipeline.js';
 import crypto from 'crypto';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
