@@ -1,27 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { EmbeddingService } from './lib/embeddings';
+import { EmbeddingService } from './lib/embeddings.js';
 import crypto from 'crypto';
 
-// Get environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const openaiApiKey = process.env.VITE_OPENAI_API_KEY;
-
-// Initialize Supabase client
-let supabase: ReturnType<typeof createClient> | null = null;
-
-try {
-  if (supabaseUrl && supabaseServiceKey) {
-    supabase = createClient(supabaseUrl, supabaseServiceKey);
-  }
-} catch (error) {
-  console.error('Failed to initialize Supabase client:', error);
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Check if Supabase client is initialized
-  if (!supabase) {
+  // Get environment variables
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const openaiApiKey = process.env.VITE_OPENAI_API_KEY;
+
+  // Check environment variables
+  if (!supabaseUrl || !supabaseServiceKey) {
     return res.status(500).json({
       error: 'Server configuration error',
       message: 'Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'
@@ -35,6 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: 'Missing required environment variable: VITE_OPENAI_API_KEY'
     });
   }
+
+  // Initialize Supabase client
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   // Only allow POST requests
   if (req.method !== 'POST') {
