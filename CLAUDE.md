@@ -80,12 +80,68 @@ The application works with several core types defined in `lib/types.ts`:
 
 **IMPORTANT: This project uses Prisma for database schema management and migrations.**
 
+#### Schema Management Workflow
+
 - **Schema Location**: `prisma/schema.prisma`
 - **ORM**: Prisma Client (PostgreSQL via Supabase)
-- **Migrations**: Use `npm run db:push` to apply schema changes to the database
-- **DO NOT** manually write SQL migrations - always update the Prisma schema and use `npm run db:push`
-- **DO NOT** use Supabase SQL Editor for schema changes - use Prisma
-- After schema changes, Prisma will automatically regenerate the client
+- **Database Provider**: Supabase PostgreSQL
+
+#### Claude's Responsibilities for Database Changes
+
+**When making schema changes, Claude MUST:**
+
+1. **Update the Prisma schema file** (`prisma/schema.prisma`) with the required changes
+2. **Run `npm run db:push`** to push schema changes to the Supabase database
+   - This command creates/updates tables, indexes, and relationships
+   - This is the PRIMARY way to modify database schema
+3. **Run `npm run db:generate`** to regenerate Prisma Client after schema changes
+4. **Verify the changes** by checking the command output for success
+
+**DO NOT:**
+- Manually write SQL migrations in `database/migrations/` for standard schema changes
+- Tell the user to run these commands - Claude should run them directly
+- Use Supabase SQL Editor for schema changes that can be handled by Prisma
+
+#### Exception: pgvector and Special SQL
+
+**For pgvector tables (like `chunks`) and PostgreSQL-specific features:**
+
+Prisma doesn't support pgvector natively, so these require manual SQL:
+
+1. **Claude should provide the SQL** in a file (e.g., `database/migrations/chunks-table.sql`)
+2. **Claude should inform the user** that this specific SQL needs to be run in Supabase SQL Editor
+3. **Include the Supabase SQL Editor link** in the message: https://supabase.com/dashboard/project/poxtygumdxfuxjohfsqh/sql/new
+
+**Example Message:**
+```
+I've created the chunks table SQL in database/migrations/chunks-table.sql.
+Since this uses pgvector (not supported by Prisma), you'll need to run it in Supabase:
+https://supabase.com/dashboard/project/poxtygumdxfuxjohfsqh/sql/new
+```
+
+#### Quick Reference Commands
+
+```bash
+# Push schema to database (Claude runs this)
+npm run db:push
+
+# Generate Prisma client (Claude runs this after schema changes)
+npm run db:generate
+
+# Open Prisma Studio to view data (useful for debugging)
+npm run db:studio
+
+# Test database connection
+npm run db:test
+```
+
+#### Database Documentation
+
+See `database/README.md` for:
+- Full setup instructions
+- Architecture overview
+- Troubleshooting guide
+- Table relationships
 
 ### Supabase Integration
 
