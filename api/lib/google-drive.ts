@@ -14,8 +14,8 @@ export class GoogleDriveService {
   private auth: any;
 
   constructor(accessToken: string, refreshToken?: string) {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET;
 
     console.log('GoogleDriveService initialized with:', {
       hasAccessToken: !!accessToken,
@@ -26,7 +26,7 @@ export class GoogleDriveService {
     });
 
     if (!clientId || !clientSecret) {
-      console.warn('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set - token refresh will not work');
+      console.warn('VITE_GOOGLE_CLIENT_ID or VITE_GOOGLE_CLIENT_SECRET not set - token refresh will not work');
     }
 
     // Use OAuth2 client with refresh token support

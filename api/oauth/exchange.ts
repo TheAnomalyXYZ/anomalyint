@@ -6,8 +6,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Get environment variables
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET;
 
   // Check environment variables
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!clientId || !clientSecret) {
     return res.status(500).json({
       error: 'Server configuration error',
-      message: 'Missing required environment variables: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET'
+      message: 'Missing required environment variables: VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_CLIENT_SECRET'
     });
   }
 
