@@ -33,7 +33,10 @@
       "Bash(\"C:\\Users\\dolon\\Documents\\Aiautomationdashboardui-main\\src\\index.css\")",
       "Bash(cat:*)",
       "Bash(curl:*)",
-      "Bash(npx prisma db push:*)"
+      "Bash(npx prisma db push:*)",
+      "Bash(pkill:*)",
+      "Bash(supabase --version:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { EmbeddingService } from './lib/embeddings.js';
+import { EmbeddingService } from './lib/embeddings';
 import crypto from 'crypto';
 
 // Get environment variables

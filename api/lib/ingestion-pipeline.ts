@@ -1,8 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { GoogleDriveService, DriveFile } from './google-drive.js';
-import { TextExtractionService } from './text-extraction.js';
-import { ChunkingService } from './chunking.js';
-import { EmbeddingService } from './embeddings.js';
+import { GoogleDriveService, DriveFile } from './google-drive';
+import { TextExtractionService } from './text-extraction';
+import { ChunkingService } from './chunking';
+import { EmbeddingService } from './embeddings';
 import crypto from 'crypto';
 
 export interface IngestionConfig {

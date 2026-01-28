@@ -38,11 +38,13 @@
             "cmdk": "^1.1.1",
             "dotenv": "^17.2.3",
             "embla-carousel-react": "^8.6.0",
+            "googleapis": "^140.0.0",
             "hono": "*",
             "input-otp": "^1.4.2",
             "lucide-react": "^0.487.0",
             "next-themes": "^0.4.6",
             "openai": "^6.16.0",
+            "pdf-parse": "^1.1.1",
             "pg": "^8.16.3",
             "react": "^18.3.1",
             "react-day-picker": "^8.10.1",
@@ -53,6 +55,7 @@
             "recharts": "^2.15.2",
             "sonner": "^2.0.3",
             "tailwind-merge": "*",
+            "tiktoken": "^1.0.17",
             "vaul": "^1.1.2"
       },
       "devDependencies": {
