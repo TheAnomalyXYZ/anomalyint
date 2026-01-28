@@ -222,9 +222,16 @@ export class IngestionPipeline {
     const embeddingStartTime = Date.now();
     const chunkTexts = chunks.map(c => c.content);
 
-    // Filter out empty or whitespace-only chunks and log for debugging
+    // Filter out invalid chunks and log for debugging
     const validChunkTexts = chunkTexts.filter((text, idx) => {
-      const isValid = text && text.trim().length > 0;
+      // Type check first
+      if (typeof text !== 'string') {
+        console.warn(`[File: ${file.name}] Chunk ${idx} is not a string (type: ${typeof text}), skipping`);
+        return false;
+      }
+
+      // Then check if empty
+      const isValid = text.trim().length > 0;
       if (!isValid) {
         console.warn(`[File: ${file.name}] Chunk ${idx} is empty or whitespace-only, skipping`);
       }
@@ -232,7 +239,7 @@ export class IngestionPipeline {
     });
 
     if (validChunkTexts.length === 0) {
-      throw new Error('All chunks are empty after filtering');
+      throw new Error('All chunks are invalid after filtering');
     }
 
     console.log(`[File: ${file.name}] Processing ${validChunkTexts.length} valid chunks (${chunkTexts.length - validChunkTexts.length} filtered out)`);
@@ -244,7 +251,9 @@ export class IngestionPipeline {
     const dbStartTime = Date.now();
 
     // Map embeddings back to valid chunks only
-    const validChunks = chunks.filter(c => c.content && c.content.trim().length > 0);
+    const validChunks = chunks.filter(c =>
+      typeof c.content === 'string' && c.content.trim().length > 0
+    );
     const chunkRecords = validChunks.map((chunk, idx) => ({
       id: crypto.randomUUID(),
       document_id: documentId,

@@ -29,13 +29,17 @@ export class EmbeddingService {
       return [];
     }
 
-    // Validate all texts are non-empty
-    const emptyIndices = texts
-      .map((text, idx) => (text && text.trim().length > 0 ? null : idx))
+    // Validate all texts are non-empty strings
+    const invalidIndices = texts
+      .map((text, idx) => {
+        if (typeof text !== 'string') return idx;
+        if (text.trim().length === 0) return idx;
+        return null;
+      })
       .filter(idx => idx !== null);
 
-    if (emptyIndices.length > 0) {
-      throw new Error(`Cannot generate embeddings: ${emptyIndices.length} empty text(s) at indices: ${emptyIndices.join(', ')}`);
+    if (invalidIndices.length > 0) {
+      throw new Error(`Cannot generate embeddings: ${invalidIndices.length} invalid text(s) at indices: ${invalidIndices.join(', ')}`);
     }
 
     const { batchSize, model } = this.config;
