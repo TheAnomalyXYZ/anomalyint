@@ -32,14 +32,16 @@ export function KnowledgeCorpus() {
     loadProfiles();
   }, []);
 
-  const loadCorpora = async () => {
+  const loadCorpora = async (): Promise<Corpus[]> => {
     setLoading(true);
     try {
       const data = await corporaApi.getCorpora();
       setCorpora(data || []);
+      return data || [];
     } catch (error) {
       toast.error('Failed to load corpora');
       console.error(error);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -215,13 +217,16 @@ export function KnowledgeCorpus() {
           clearInterval(intervalId);
 
           // Reload corpora to check if sync_status is still 'running'
-          await loadCorpora();
+          const updatedCorpora = await loadCorpora();
 
-          // Check if corpus needs another batch
-          const corpus = corpora.find(c => c.id === corpusId);
+          // Check if corpus needs another batch using freshly loaded data
+          const corpus = updatedCorpora.find(c => c.id === corpusId);
           if (corpus && corpus.syncStatus === 'running') {
             // Trigger another sync for the next batch
             console.log('Triggering next batch for corpus:', corpusId);
+            const totalFiles = corpus.lastSyncStats?.total_files || 0;
+            const processedFiles = corpus.lastSyncStats?.files_processed || 0;
+            toast.info(`Processing file ${processedFiles + 1}/${totalFiles}...`);
             handleSync(corpusId);
           } else {
             // All done
@@ -230,7 +235,9 @@ export function KnowledgeCorpus() {
               next.delete(corpusId);
               return next;
             });
-            toast.success(`Sync completed! ${job.stats?.files_processed || 0} files processed.`);
+            const totalProcessed = corpus?.lastSyncStats?.files_processed || job.stats?.files_processed || 0;
+            const totalFailed = corpus?.lastSyncStats?.files_failed || 0;
+            toast.success(`Sync completed! ${totalProcessed} files processed${totalFailed > 0 ? `, ${totalFailed} failed` : ''}.`);
           }
           return;
         }
