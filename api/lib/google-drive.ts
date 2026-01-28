@@ -11,11 +11,31 @@ export interface DriveFile {
 
 export class GoogleDriveService {
   private drive: any;
+  private auth: any;
 
-  constructor(accessToken: string) {
-    const auth = new google.auth.OAuth2();
-    auth.setCredentials({ access_token: accessToken });
-    this.drive = google.drive({ version: 'v3', auth });
+  constructor(accessToken: string, refreshToken?: string) {
+    // Use OAuth2 client with refresh token support
+    this.auth = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+
+    this.auth.setCredentials({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    // Automatically refresh tokens when they expire
+    this.auth.on('tokens', (tokens: any) => {
+      if (tokens.refresh_token) {
+        console.log('New refresh token received:', tokens.refresh_token);
+      }
+      if (tokens.access_token) {
+        console.log('Access token refreshed');
+      }
+    });
+
+    this.drive = google.drive({ version: 'v3', auth: this.auth });
   }
 
   async listFilesInFolder(folderId: string, parentPath: string = ''): Promise<DriveFile[]> {

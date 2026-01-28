@@ -123,7 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Initialize services and run sync asynchronously
     // Note: We use the encrypted token directly (in production, you'd decrypt it)
     const accessToken = driveSource.oauth_credential.encrypted_access_token;
-    const driveService = new GoogleDriveService(accessToken);
+    const refreshToken = driveSource.oauth_credential.encrypted_refresh_token;
+    const driveService = new GoogleDriveService(accessToken, refreshToken);
 
     const pipeline = new IngestionPipeline(driveService, {
       openaiApiKey,
