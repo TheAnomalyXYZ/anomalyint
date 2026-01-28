@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Search for relevant chunks using vector similarity
     console.log('[RAG Chat] Searching for relevant chunks in corpus:', corpus_id);
     const { data: chunks, error: searchError } = await supabase.rpc('match_chunks', {
-      query_embedding: JSON.stringify(queryEmbedding[0]),
+      query_embedding: queryEmbedding[0], // Pass array directly, not JSON string
       filter_corpus_id: corpus_id,
       match_threshold: 0.6, // Lower threshold for better recall
       match_count: 5,
