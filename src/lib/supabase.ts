@@ -596,7 +596,12 @@ function convertDbCorpus(dbCorpus: any): any {
     syncConfig: dbCorpus.sync_config,
     createdAt: new Date(dbCorpus.created_at),
     updatedAt: new Date(dbCorpus.updated_at),
-    drive_source: dbCorpus.drive_source,
+    drive_source: dbCorpus.drive_source ? {
+      id: dbCorpus.drive_source.id,
+      displayName: dbCorpus.drive_source.display_name,
+      googleAccountEmail: dbCorpus.drive_source.google_account_email,
+      oauth_credential: dbCorpus.drive_source.oauth_credential,
+    } : undefined,
     brand_profile: dbCorpus.brand_profile,
   };
 }
@@ -610,9 +615,15 @@ export const corporaApi = {
           *,
           drive_source:drive_sources(
             id,
+            display_name,
+            google_account_email,
             oauth_credential:oauth_credentials(
               token_expires_at
             )
+          ),
+          brand_profile:brand_profiles(
+            id,
+            name
           )
         `)
         .order('created_at', { ascending: false });
@@ -622,6 +633,7 @@ export const corporaApi = {
         return [];
       }
 
+      console.log('Fetched corpora:', data);
       return (data || []).map(convertDbCorpus);
     } catch (error) {
       console.error('Error fetching corpora:', error);

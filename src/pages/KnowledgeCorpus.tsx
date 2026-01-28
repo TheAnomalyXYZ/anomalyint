@@ -254,6 +254,24 @@ export function KnowledgeCorpus() {
     };
   };
 
+  const getGoogleOAuthUrl = (driveSourceId: string) => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    const scope = 'https://www.googleapis.com/auth/drive.readonly';
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: scope,
+      access_type: 'offline',
+      prompt: 'consent',
+      state: driveSourceId, // Pass drive_source_id to know which one to update
+    });
+
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  };
+
   const formatDate = (date?: Date) => {
     if (!date) return 'Never';
     return new Date(date).toLocaleString('en-US', {
@@ -454,13 +472,28 @@ export function KnowledgeCorpus() {
                   {(() => {
                     const tokenStatus = getTokenStatus(corpus);
                     return (
-                      <div className={`flex items-center gap-2 text-sm p-2 rounded ${tokenStatus.isExpired ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-                        {tokenStatus.isExpired ? (
-                          <AlertCircle className="h-4 w-4" />
-                        ) : (
-                          <CheckCircle2 className="h-4 w-4" />
+                      <div className={`flex items-center justify-between text-sm p-2 rounded ${tokenStatus.isExpired ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                        <div className="flex items-center gap-2">
+                          {tokenStatus.isExpired ? (
+                            <AlertCircle className="h-4 w-4" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          <span>{tokenStatus.message}</span>
+                        </div>
+                        {tokenStatus.isExpired && corpus.drive_source && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-white hover:bg-gray-50"
+                            onClick={() => {
+                              const oauthUrl = getGoogleOAuthUrl(corpus.drive_source!.id);
+                              window.location.href = oauthUrl;
+                            }}
+                          >
+                            Re-authenticate
+                          </Button>
                         )}
-                        <span>{tokenStatus.message}</span>
                       </div>
                     );
                   })()}
