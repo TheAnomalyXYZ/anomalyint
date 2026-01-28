@@ -194,7 +194,7 @@ export class IngestionPipeline {
       file_name: file.name,
       file_type: file.mimeType,
       file_path: file.path,
-      file_size_bytes: file.size ? BigInt(file.size) : null,
+      file_size_bytes: file.size ? parseInt(file.size, 10) : null,
       drive_modified_at: file.modifiedTime,
       content_hash: contentHash,
       indexing_status: 'processing',
