@@ -68,11 +68,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Check if sync is already running
-    if (corpus.sync_status === 'running') {
+    // Check if there's an active job running (not just corpus status)
+    // This allows auto-loop to trigger the next batch even when corpus sync_status is 'running'
+    const { data: activeJob } = await supabase
+      .from('ingestion_jobs')
+      .select('id, status')
+      .eq('corpus_id', corpus_id)
+      .in('status', ['pending', 'running'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (activeJob) {
       return res.status(409).json({
         error: 'Sync already in progress',
-        message: 'A sync operation is already running for this corpus',
+        message: `An active ingestion job (${activeJob.id}) is already running for this corpus`,
       });
     }
 
