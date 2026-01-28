@@ -132,17 +132,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       supabaseServiceKey,
     });
 
-    // Run sync in background (don't await)
-    pipeline.runSync(corpus_id, corpus.google_drive_folder_id, jobId).catch((error) => {
-      console.error(`Sync failed for corpus ${corpus_id}:`, error);
-    });
+    // Run sync synchronously (await completion)
+    // With small batches (1-3 files), this should complete within Vercel's 60s timeout
+    try {
+      await pipeline.runSync(corpus_id, corpus.google_drive_folder_id, jobId, 1);
 
-    // Return immediately with job info
-    return res.status(202).json({
-      message: 'Sync started',
-      job_id: jobId,
-      corpus_id,
-    });
+      return res.status(200).json({
+        message: 'Sync completed successfully',
+        job_id: jobId,
+        corpus_id,
+      });
+    } catch (syncError) {
+      console.error(`Sync failed for corpus ${corpus_id}:`, syncError);
+      return res.status(500).json({
+        error: 'Sync failed',
+        message: syncError instanceof Error ? syncError.message : 'Unknown sync error',
+        job_id: jobId,
+      });
+    }
   } catch (error) {
     console.error('Error starting sync:', error);
     return res.status(500).json({

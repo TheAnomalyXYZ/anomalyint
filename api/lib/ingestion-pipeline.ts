@@ -143,8 +143,12 @@ export class IngestionPipeline {
   }
 
   private async processFile(file: DriveFile, corpusId: string): Promise<number> {
+    const fileStartTime = Date.now();
+    console.log(`[File: ${file.name}] Starting processing...`);
+
     // Extract text based on file type
     let extractedText: string;
+    const extractStartTime = Date.now();
 
     if (file.mimeType.includes('google-apps.document')) {
       extractedText = await this.driveService.exportGoogleDoc(file.id);
@@ -155,6 +159,8 @@ export class IngestionPipeline {
       const buffer = await this.driveService.downloadFile(file.id);
       extractedText = this.textExtractor.extractFromText(buffer);
     }
+
+    console.log(`[File: ${file.name}] Text extraction took ${Date.now() - extractStartTime}ms`);
 
     // Normalize text
     extractedText = this.textExtractor.normalizeText(extractedText);
@@ -204,17 +210,22 @@ export class IngestionPipeline {
     }
 
     // Chunk text
+    const chunkStartTime = Date.now();
     const chunks = this.chunker.chunkText(extractedText);
+    console.log(`[File: ${file.name}] Chunking took ${Date.now() - chunkStartTime}ms, generated ${chunks.length} chunks`);
 
     if (chunks.length === 0) {
       throw new Error('No chunks generated from text');
     }
 
     // Generate embeddings in batches
+    const embeddingStartTime = Date.now();
     const chunkTexts = chunks.map(c => c.content);
     const embeddings = await this.embedder.generateEmbeddings(chunkTexts);
+    console.log(`[File: ${file.name}] Embedding generation took ${Date.now() - embeddingStartTime}ms`);
 
     // Store chunks with embeddings
+    const dbStartTime = Date.now();
     const chunkRecords = chunks.map((chunk, idx) => ({
       id: crypto.randomUUID(),
       document_id: documentId,
@@ -248,6 +259,9 @@ export class IngestionPipeline {
         updated_at: new Date().toISOString(),
       })
       .eq('id', documentId);
+
+    console.log(`[File: ${file.name}] Database operations took ${Date.now() - dbStartTime}ms`);
+    console.log(`[File: ${file.name}] Total processing time: ${Date.now() - fileStartTime}ms`);
 
     return chunks.length;
   }
