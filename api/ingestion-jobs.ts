@@ -1,29 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-// Get environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// Initialize Supabase client
-let supabase: ReturnType<typeof createClient> | null = null;
-
-try {
-  if (supabaseUrl && supabaseServiceKey) {
-    supabase = createClient(supabaseUrl, supabaseServiceKey);
-  }
-} catch (error) {
-  console.error('Failed to initialize Supabase client:', error);
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Check if Supabase client is initialized
-  if (!supabase) {
+  // Get environment variables
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // Check environment variables
+  if (!supabaseUrl || !supabaseServiceKey) {
     return res.status(500).json({
       error: 'Server configuration error',
       message: 'Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'
     });
   }
+
+  // Initialize Supabase client
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   // GET /api/ingestion-jobs?job_id={id} - Get specific job status
   // GET /api/ingestion-jobs?corpus_id={id} - Get all jobs for a corpus
