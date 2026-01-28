@@ -150,8 +150,8 @@ You can configure your n8n workflow to POST directly to this endpoint.
 
 The endpoint requires the following environment variables to be set:
 
-- `VITE_SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` or `VITE_SUPABASE_ANON_KEY`: Supabase authentication key
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase authentication key
 
 ### Notes
 
@@ -296,8 +296,8 @@ You can configure your n8n workflow to POST directly to this endpoint instead of
 
 The endpoint requires the following environment variables to be set:
 
-- `VITE_SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` or `VITE_SUPABASE_ANON_KEY`: Supabase authentication key
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase authentication key
 
 ### Notes
 
