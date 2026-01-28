@@ -2,7 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "framework": "vite",
-  "installCommand": "npm ci",
   "functions": {
     "api/**/*.ts": {
       "memory": 1024,
