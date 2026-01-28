@@ -221,12 +221,14 @@ export class IngestionPipeline {
     }
 
     // Log first few chunks for debugging
+    const firstChunk = chunks[0];
+    const firstContent = firstChunk?.content;
     console.log(`[File: ${file.name}] First chunk sample:`, {
-      index: chunks[0]?.index,
-      contentType: typeof chunks[0]?.content,
-      contentLength: chunks[0]?.content?.length,
-      contentPreview: chunks[0]?.content?.substring(0, 100),
-      tokenCount: chunks[0]?.tokenCount,
+      index: firstChunk?.index,
+      contentType: typeof firstContent,
+      contentLength: typeof firstContent === 'string' ? firstContent.length : 'N/A',
+      contentPreview: typeof firstContent === 'string' ? firstContent.substring(0, 100) : String(firstContent).substring(0, 100),
+      tokenCount: firstChunk?.tokenCount,
     });
 
     // Generate embeddings in batches

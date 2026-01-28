@@ -33,7 +33,14 @@ export class ChunkingService {
 
     for (let i = 0; i < tokens.length; i += step) {
       const chunkTokens = tokens.slice(i, i + chunkSize);
-      const chunkText = this.encoder.decode(chunkTokens);
+      const decoded = this.encoder.decode(chunkTokens);
+
+      // Ensure content is always a string (tiktoken might return Uint8Array in some cases)
+      const chunkText = typeof decoded === 'string'
+        ? decoded
+        : decoded instanceof Uint8Array
+          ? new TextDecoder().decode(decoded)
+          : String(decoded);
 
       chunks.push({
         content: chunkText,
