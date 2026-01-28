@@ -604,21 +604,9 @@ function convertDbCorpus(dbCorpus: any): any {
 export const corporaApi = {
   async getCorpora() {
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('corpora')
-        .select(`
-          *,
-          drive_source:drive_sources(
-            id,
-            displayName,
-            googleAccountEmail,
-            status
-          ),
-          brand_profile:brand_profiles(
-            id,
-            name
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
