@@ -52,11 +52,14 @@ export class IngestionPipeline {
 
     try {
       // Update job to running
+      console.log(`[${jobId}] Setting job status to 'running'`);
       await this.updateJobStatus(jobId, 'running');
 
       // Stage 1: List Drive files
+      console.log(`[${jobId}] Listing files in folder: ${folderId}`);
       await this.updateJobProgress(jobId, 'listing_files', 0, 1);
       const driveFiles = await this.driveService.listFilesInFolder(folderId);
+      console.log(`[${jobId}] Found ${driveFiles.length} total files`);
 
       // Filter supported types
       const supportedFiles = driveFiles.filter(f =>
@@ -276,10 +279,19 @@ export class IngestionPipeline {
       updates.error_message = errorMessage;
     }
 
-    await this.supabase
+    console.log(`[${jobId}] Updating job status to '${status}':`, JSON.stringify(updates, null, 2));
+
+    const { error } = await this.supabase
       .from('ingestion_jobs')
       .update(updates)
       .eq('id', jobId);
+
+    if (error) {
+      console.error(`[${jobId}] Failed to update job status:`, error);
+      throw error;
+    }
+
+    console.log(`[${jobId}] Job status updated successfully`);
   }
 
   private async updateJobProgress(
@@ -288,13 +300,19 @@ export class IngestionPipeline {
     current: number,
     total: number
   ): Promise<void> {
-    await this.supabase
+    console.log(`[${jobId}] Updating progress: ${stage} (${current}/${total})`);
+
+    const { error } = await this.supabase
       .from('ingestion_jobs')
       .update({
         progress: { stage, current, total },
         updated_at: new Date().toISOString(),
       })
       .eq('id', jobId);
+
+    if (error) {
+      console.error(`[${jobId}] Failed to update progress:`, error);
+    }
   }
 
   private async updateCorpusSync(
@@ -302,7 +320,9 @@ export class IngestionPipeline {
     syncStatus: string,
     stats: Partial<SyncStats>
   ): Promise<void> {
-    await this.supabase
+    console.log(`[${corpusId}] Updating corpus sync_status to '${syncStatus}':`, JSON.stringify(stats, null, 2));
+
+    const { error } = await this.supabase
       .from('corpora')
       .update({
         sync_status: syncStatus,
@@ -311,5 +331,11 @@ export class IngestionPipeline {
         updated_at: new Date().toISOString(),
       })
       .eq('id', corpusId);
+
+    if (error) {
+      console.error(`[${corpusId}] Failed to update corpus:`, error);
+    } else {
+      console.log(`[${corpusId}] Corpus updated successfully`);
+    }
   }
 }

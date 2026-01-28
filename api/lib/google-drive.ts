@@ -17,6 +17,14 @@ export class GoogleDriveService {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
+    console.log('GoogleDriveService initialized with:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      accessTokenPreview: accessToken ? `${accessToken.substring(0, 20)}...` : 'none',
+    });
+
     if (!clientId || !clientSecret) {
       console.warn('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set - token refresh will not work');
     }
@@ -81,8 +89,14 @@ export class GoogleDriveService {
       } while (pageToken);
 
       return files;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error listing files in Google Drive:', error);
+
+      // Check if it's a 401 Unauthorized error
+      if (error.code === 401 || error.response?.status === 401) {
+        throw new Error('Google Drive authentication failed. The access token may be expired or invalid. Please re-authenticate.');
+      }
+
       if (error instanceof Error) {
         throw new Error(`Failed to list Drive files: ${error.message}`);
       }
