@@ -143,6 +143,49 @@ See `database/README.md` for:
 - Troubleshooting guide
 - Table relationships
 
+#### Database Inspection and Debugging
+
+**When the user reports issues with database state or asks questions about data:**
+
+Claude should proactively verify the database state using one of these methods:
+
+1. **Prisma Studio (Recommended for visual inspection)**
+   ```bash
+   npm run db:studio &  # Opens GUI in browser
+   ```
+   - Use this to visually inspect tables, relationships, and data
+   - Particularly useful for questions like "why do I only see X records?" or "where is my data?"
+
+2. **Custom verification scripts**
+   Create a temporary Node.js script to query Supabase directly:
+   ```javascript
+   // check-data.mjs
+   import { createClient } from '@supabase/supabase-js';
+   import 'dotenv/config';
+
+   const supabase = createClient(
+     process.env.VITE_SUPABASE_URL,
+     process.env.VITE_SUPABASE_ANON_KEY
+   );
+
+   const { data, error } = await supabase
+     .from('table_name')
+     .select('*');
+
+   console.log(`Found ${data?.length || 0} records`);
+   console.log(data);
+   ```
+   Then run: `node check-data.mjs`
+
+3. **Supabase SQL Editor** (for complex queries)
+   - Direct SQL queries at: https://supabase.com/dashboard/project/poxtygumdxfuxjohfsqh/sql/new
+   - Use for JOIN queries, aggregations, or debugging vector operations
+
+**Example scenarios:**
+- User: "I only see 1 profile" → Check `brand_profiles` table count and list all records
+- User: "Why isn't my data showing?" → Query the relevant table and related tables
+- User: "Are embeddings stored?" → Verify `chunks` table has non-null `embedding` column values
+
 ### Supabase Integration
 
 - Database hosted on Supabase PostgreSQL
