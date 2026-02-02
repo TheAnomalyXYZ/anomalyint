@@ -1280,7 +1280,7 @@ Your role:
                     <SelectValue placeholder="Select a knowledge base" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None (General AI)</SelectItem>
+                    <SelectItem value="none">None (General AI)</SelectItem>
                     {corpora.map((corpus) => (
                       <SelectItem key={corpus.id} value={corpus.id}>
                         {corpus.name}
@@ -1288,7 +1288,7 @@ Your role:
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedCorpusId && (
+                {selectedCorpusId && selectedCorpusId !== 'none' && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Responses will use knowledge from the selected corpus
                   </p>
