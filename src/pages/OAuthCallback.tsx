@@ -14,7 +14,7 @@ export function OAuthCallback() {
     const handleCallback = async () => {
       try {
         const code = searchParams.get('code');
-        const driveSourceId = searchParams.get('state'); // We passed drive_source_id as state
+        const stateParam = searchParams.get('state');
         const error = searchParams.get('error');
 
         if (error) {
@@ -29,13 +29,38 @@ export function OAuthCallback() {
           return;
         }
 
-        if (!driveSourceId) {
+        if (!stateParam) {
           setStatus('error');
-          setMessage('No drive source ID provided');
+          setMessage('No state parameter provided');
           return;
         }
 
-        // Exchange code for tokens
+        // Parse state - it could be either a simple drive_source_id string
+        // or a JSON object with corpus_id and action
+        let driveSourceId: string;
+        let stateData: any;
+
+        try {
+          stateData = JSON.parse(stateParam);
+          // New format with action
+          if (stateData.action === 'refresh' && stateData.corpus_id) {
+            // For refresh action, redirect to the API callback endpoint
+            // which handles the refresh flow properly
+            const params = new URLSearchParams({
+              code,
+              state: stateParam,
+            });
+            window.location.href = `/api/oauth/google/callback?${params.toString()}`;
+            return;
+          }
+          // Old format but as JSON
+          driveSourceId = stateData.drive_source_id || stateData;
+        } catch {
+          // Old format - plain string
+          driveSourceId = stateParam;
+        }
+
+        // Exchange code for tokens (old flow)
         setMessage('Exchanging authorization code for tokens...');
 
         const response = await fetch('/api/oauth/exchange', {
