@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { questionsApi, agentsApi } from "../lib/supabase";
+import { questionsApi, agentsApi, corporaApi } from "../lib/supabase";
 import OpenAI from "openai";
 import {
   Dialog,
@@ -53,7 +53,7 @@ import { QuestionDetailsModal } from "../components/shared/QuestionDetailsModal"
 import { EditQuestionDetailsModal } from "../components/shared/EditQuestionDetailsModal";
 import { RatingGauge } from "../components/shared/RatingGauge";
 import { NovaProcessingModal } from "../components/shared/NovaProcessingModal";
-import { ProposedQuestion, Question, Agent } from "../lib/types";
+import { ProposedQuestion, Question, Agent, Corpus } from "../lib/types";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
 
@@ -88,12 +88,18 @@ export function Overview() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [questionsData, agentsData] = await Promise.all([
+      const [questionsData, agentsData, corporaData] = await Promise.all([
         questionsApi.getQuestions(),
-        agentsApi.getAgents()
+        agentsApi.getAgents(),
+        corporaApi.getCorpora()
       ]);
       setQuestions(questionsData);
       setAgents(agentsData);
+      setCorpora(corporaData || []);
+      // Auto-select first corpus if available
+      if (corporaData && corporaData.length > 0 && !selectedCorpusId) {
+        setSelectedCorpusId(corporaData[0].id);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -281,6 +287,8 @@ Your role:
   const [todaysContext, setTodaysContext] = useState<string>("");
   const [suggestedTweets, setSuggestedTweets] = useState<string[]>([]);
   const [loadingTweets, setLoadingTweets] = useState(false);
+  const [corpora, setCorpora] = useState<Corpus[]>([]);
+  const [selectedCorpusId, setSelectedCorpusId] = useState<string>("");
 
   const handleOpenModal = () => {
     setQuestionInput(searchInput);
@@ -1255,13 +1263,38 @@ Your role:
               <div className="flex items-center justify-center w-10 h-10 gradient-primary text-white rounded-lg">
                 <Brain className="h-5 w-5" />
               </div>
-              <div>
+              <div className="flex-1">
                 <DialogTitle>AI Content Generator</DialogTitle>
                 <DialogDescription>
                   Chat with AI to create engaging content
                 </DialogDescription>
               </div>
             </div>
+
+            {/* Knowledge Base Selector */}
+            {corpora.length > 0 && (
+              <div className="mt-4">
+                <Label className="text-sm font-medium mb-2 block">Knowledge Base</Label>
+                <Select value={selectedCorpusId} onValueChange={setSelectedCorpusId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a knowledge base" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None (General AI)</SelectItem>
+                    {corpora.map((corpus) => (
+                      <SelectItem key={corpus.id} value={corpus.id}>
+                        {corpus.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedCorpusId && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Responses will use knowledge from the selected corpus
+                  </p>
+                )}
+              </div>
+            )}
           </DialogHeader>
 
           {/* Chat Messages */}
