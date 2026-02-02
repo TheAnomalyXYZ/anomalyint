@@ -25,7 +25,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
     const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET;
-    const redirectUri = `${req.headers.origin || 'http://localhost:3000'}/api/oauth/google/callback`;
+
+    // Construct redirect URI properly for production
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers.host || process.env.VERCEL_URL || 'localhost:3000';
+    const redirectUri = `${protocol}://${host}/api/oauth/google/callback`;
 
     if (!clientId || !clientSecret) {
       throw new Error('Google OAuth credentials not configured');
