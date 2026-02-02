@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
-  const redirectUri = `${req.headers.origin || 'http://localhost:3000'}/api/oauth/google/refresh-callback`;
+  const redirectUri = `${req.headers.origin || 'http://localhost:3000'}/api/oauth/google/callback`;
 
   if (!clientId) {
     return res.status(500).json({
@@ -24,9 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Build OAuth URL for refresh
+  // Build OAuth URL for refresh - use same callback, distinguish with state
   const scopes = ['https://www.googleapis.com/auth/drive.readonly'];
-  const state = JSON.stringify({ corpus_id, refresh: true });
+  const state = JSON.stringify({ corpus_id, action: 'refresh' });
 
   const params = new URLSearchParams({
     client_id: clientId,

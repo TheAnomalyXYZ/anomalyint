@@ -19,8 +19,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Parse state to get profile_id and folder_id
-    const { profile_id, folder_id } = JSON.parse(state as string);
+    // Parse state to determine action type
+    const stateData = JSON.parse(state as string);
+    const action = stateData.action || 'create'; // 'create' or 'refresh'
 
     const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
     const clientSecret = process.env.VITE_GOOGLE_CLIENT_SECRET;
@@ -52,6 +53,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const now = new Date().toISOString();
 
+    // Handle refresh action (update existing tokens)
+    if (action === 'refresh') {
+      const corpusId = stateData.corpus_id;
+
+      // Get corpus to find oauth_credential_id and drive_source_id
+      const { data: corpus, error: corpusError } = await supabase
+        .from('corpora')
+        .select(`
+          id,
+          drive_source_id,
+          drive_source:drive_sources(
+            id,
+            oauth_credential_id
+          )
+        `)
+        .eq('id', corpusId)
+        .single();
+
+      if (corpusError || !corpus) {
+        throw new Error(`Corpus not found: ${corpusError?.message}`);
+      }
+
+      const oauthCredentialId = (corpus.drive_source as any)?.oauth_credential_id;
+
+      if (!oauthCredentialId) {
+        throw new Error('OAuth credential ID not found for this corpus');
+      }
+
+      // Update OAuth credentials with new tokens
+      const { error: updateError } = await supabase
+        .from('oauth_credentials')
+        .update({
+          encrypted_access_token: tokens.access_token,
+          encrypted_refresh_token: tokens.refresh_token,
+          token_expires_at: tokens.expiry_date
+            ? new Date(tokens.expiry_date).toISOString()
+            : new Date(Date.now() + 3600000).toISOString(),
+          updated_at: now,
+        })
+        .eq('id', oauthCredentialId);
+
+      if (updateError) {
+        throw new Error(`Failed to update OAuth credentials: ${updateError.message}`);
+      }
+
+      // Update drive source with new user info
+      const { error: driveSourceError } = await supabase
+        .from('drive_sources')
+        .update({
+          displayName: userInfo.name || 'My Google Drive',
+          googleAccountEmail: userInfo.email,
+          status: 'active',
+          updated_at: now,
+        })
+        .eq('id', corpus.drive_source_id);
+
+      if (driveSourceError) {
+        console.error('Failed to update drive source:', driveSourceError);
+        // Non-fatal, continue
+      }
+
+      // Redirect back with refresh success
+      return res.redirect(`/knowledge-corpus?success=true&refreshed=true&corpus_id=${corpusId}`);
+    }
+
+    // Handle create action (new corpus setup)
+    const { profile_id, folder_id } = stateData;
+
     // Create OAuth credentials
     const oauthId = crypto.randomUUID();
     const { error: oauthError } = await supabase
@@ -63,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         encrypted_refresh_token: tokens.refresh_token,
         token_expires_at: tokens.expiry_date
           ? new Date(tokens.expiry_date).toISOString()
-          : new Date(Date.now() + 3600000).toISOString(), // Default 1 hour
+          : new Date(Date.now() + 3600000).toISOString(),
         scope: ['https://www.googleapis.com/auth/drive.readonly'],
         created_at: now,
         updated_at: now,
