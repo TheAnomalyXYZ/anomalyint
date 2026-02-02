@@ -126,6 +126,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Non-fatal, continue
       }
 
+      // Clear any errors on the corpus and set status to idle
+      const { error: corpusUpdateError } = await supabase
+        .from('corpora')
+        .update({
+          sync_status: 'idle',
+          last_error: null,
+          updated_at: now,
+        })
+        .eq('id', corpusId);
+
+      if (corpusUpdateError) {
+        console.error('Failed to update corpus status:', corpusUpdateError);
+        // Non-fatal, continue
+      }
+
       // Redirect back with refresh success
       return res.redirect(`/knowledge-corpus?success=true&refreshed=true&corpus_id=${corpusId}`);
     }
