@@ -251,11 +251,8 @@ export function KnowledgeCorpus() {
     setEditFolderId('');
   };
 
-  const handleOpenChat = () => {
-    // Auto-select first corpus if available and none selected
-    if (corpora.length > 0 && !selectedChatCorpusId) {
-      setSelectedChatCorpusId(corpora[0].id);
-    }
+  const handleOpenChat = (corpusId: string) => {
+    setSelectedChatCorpusId(corpusId);
     setChatOpen(true);
   };
 
@@ -586,6 +583,15 @@ export function KnowledgeCorpus() {
                         Sync Now
                       </Button>
                       <Button
+                        onClick={() => handleOpenChat(corpus.id)}
+                        size="sm"
+                        variant="outline"
+                        className="gradient-primary text-white border-0"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Chat
+                      </Button>
+                      <Button
                         onClick={() => handleClear(corpus.id, isRunning)}
                         disabled={isClearing}
                         size="sm"
@@ -757,15 +763,6 @@ export function KnowledgeCorpus() {
         </div>
       )}
 
-      {/* Floating Chat Button */}
-      <Button
-        onClick={handleOpenChat}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary text-white border-0 hover:scale-110 transition-transform"
-        size="icon"
-      >
-        <MessageSquare className="h-6 w-6" />
-      </Button>
-
       {/* AI Chat Modal */}
       <Dialog open={chatOpen} onOpenChange={setChatOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col p-0">
@@ -775,9 +772,9 @@ export function KnowledgeCorpus() {
                 <Brain className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <DialogTitle>Knowledge Base Chat</DialogTitle>
+                <DialogTitle>AI Content Generator</DialogTitle>
                 <DialogDescription>
-                  Query your knowledge bases with AI
+                  Chat with AI to create engaging content
                 </DialogDescription>
               </div>
             </div>
@@ -815,7 +812,7 @@ export function KnowledgeCorpus() {
                 <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
                 <p className="text-muted-foreground">
-                  Ask questions about your knowledge bases
+                  Ask me to create content about anything
                 </p>
               </div>
             ) : (
@@ -859,7 +856,7 @@ export function KnowledgeCorpus() {
           <div className="p-4 border-t bg-slate-50">
             <div className="flex gap-2">
               <Input
-                placeholder="Ask about your knowledge base..."
+                placeholder="Type your message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
