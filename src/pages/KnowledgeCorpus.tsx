@@ -368,138 +368,144 @@ export function KnowledgeCorpus() {
         </div>
       </div>
 
-      {corpora.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Initialize Knowledge Corpus</CardTitle>
-            <CardDescription>
-              Connect a Google Drive folder to create a knowledge base for RAG retrieval
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              {/* Profile Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="profile">Brand Profile</Label>
-                <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
-                  <SelectTrigger id="profile">
-                    <SelectValue placeholder="Select a brand profile" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {profiles.map(profile => (
-                      <SelectItem key={profile.id} value={profile.id}>
-                        {profile.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Each profile can have its own isolated knowledge base
-                </p>
-              </div>
-
-              {/* Google Drive Folder Selection */}
-              {selectedProfileId && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="folder">Google Drive Folder</Label>
-                    <Select
-                      value={selectedFolderId}
-                      onValueChange={setSelectedFolderId}
-                      disabled={!selectedProfileId}
-                    >
-                      <SelectTrigger id="folder">
-                        <SelectValue placeholder="Select a folder" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {profiles
-                          .find(p => p.id === selectedProfileId)
-                          ?.googleDriveFolderIds?.map(folderId => (
-                            <SelectItem key={folderId} value={folderId}>
-                              {folderId}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Folders configured in the Profiles page. Folder ID from Google Drive URL.
-                    </p>
-                  </div>
-
-                  {/* OAuth Tokens */}
-                  <div className="space-y-2">
-                    <Label htmlFor="access-token">Google Access Token</Label>
-                    <Input
-                      id="access-token"
-                      type="password"
-                      placeholder="ya29.a0..."
-                      value={accessToken}
-                      onChange={e => setAccessToken(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Get from{' '}
-                      <a
-                        href="https://developers.google.com/oauthplayground/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
-                      >
-                        OAuth Playground
-                      </a>
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="refresh-token">Google Refresh Token</Label>
-                    <Input
-                      id="refresh-token"
-                      type="password"
-                      placeholder="1//04..."
-                      value={refreshToken}
-                      onChange={e => setRefreshToken(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Google Account Email (optional)</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="user@example.com"
-                      value={googleEmail}
-                      onChange={e => setGoogleEmail(e.target.value)}
-                    />
-                  </div>
-                </>
-              )}
+      {/* Setup Form - Always Visible */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {corpora.length === 0 ? 'Initialize Knowledge Corpus' : 'Add Knowledge Corpus'}
+          </CardTitle>
+          <CardDescription>
+            {corpora.length === 0
+              ? 'Connect a Google Drive folder to create a knowledge base for RAG retrieval'
+              : 'Create an additional knowledge base for another brand profile'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            {/* Profile Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="profile">Brand Profile</Label>
+              <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                <SelectTrigger id="profile">
+                  <SelectValue placeholder="Select a brand profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map(profile => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Each profile can have its own isolated knowledge base
+              </p>
             </div>
 
-            <Button
-              onClick={handleSetup}
-              disabled={
-                settingUp ||
-                !selectedProfileId ||
-                !accessToken ||
-                !refreshToken ||
-                !selectedFolderId
-              }
-              className="w-full gradient-primary text-white border-0"
-            >
-              {settingUp ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Setting up...
-                </>
-              ) : (
-                <>
-                  <Database className="h-4 w-4 mr-2" />
-                  Initialize Knowledge Corpus
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
+            {/* Google Drive Folder Selection */}
+            {selectedProfileId && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="folder">Google Drive Folder</Label>
+                  <Select
+                    value={selectedFolderId}
+                    onValueChange={setSelectedFolderId}
+                    disabled={!selectedProfileId}
+                  >
+                    <SelectTrigger id="folder">
+                      <SelectValue placeholder="Select a folder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles
+                        .find(p => p.id === selectedProfileId)
+                        ?.googleDriveFolderIds?.map(folderId => (
+                          <SelectItem key={folderId} value={folderId}>
+                            {folderId}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Folders configured in the Profiles page. Folder ID from Google Drive URL.
+                  </p>
+                </div>
+
+                {/* OAuth Tokens */}
+                <div className="space-y-2">
+                  <Label htmlFor="access-token">Google Access Token</Label>
+                  <Input
+                    id="access-token"
+                    type="password"
+                    placeholder="ya29.a0..."
+                    value={accessToken}
+                    onChange={e => setAccessToken(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Get from{' '}
+                    <a
+                      href="https://developers.google.com/oauthplayground/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      OAuth Playground
+                    </a>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="refresh-token">Google Refresh Token</Label>
+                  <Input
+                    id="refresh-token"
+                    type="password"
+                    placeholder="1//04..."
+                    value={refreshToken}
+                    onChange={e => setRefreshToken(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Google Account Email (optional)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="user@example.com"
+                    value={googleEmail}
+                    onChange={e => setGoogleEmail(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <Button
+            onClick={handleSetup}
+            disabled={
+              settingUp ||
+              !selectedProfileId ||
+              !accessToken ||
+              !refreshToken ||
+              !selectedFolderId
+            }
+            className="w-full gradient-primary text-white border-0"
+          >
+            {settingUp ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Setting up...
+              </>
+            ) : (
+              <>
+                <Database className="h-4 w-4 mr-2" />
+                {corpora.length === 0 ? 'Initialize Knowledge Corpus' : 'Add Knowledge Corpus'}
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Existing Corpora List */}
+      {corpora.length > 0 && (
         <div className="grid gap-4">
           {corpora.map(corpus => {
             const job = jobs.get(corpus.id);
