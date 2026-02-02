@@ -29,7 +29,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Build OAuth URL for refresh - use same callback, distinguish with state
-  const scopes = ['https://www.googleapis.com/auth/drive.readonly'];
+  const scopes = [
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+  ];
   const state = JSON.stringify({ corpus_id, action: 'refresh' });
 
   const params = new URLSearchParams({
