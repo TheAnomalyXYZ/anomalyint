@@ -6,7 +6,7 @@ import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock, Trash2, X } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock, Trash2, X, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Corpus, IngestionJob, SyncStatus, BrandProfile } from '../lib/types';
 import { profilesApi, corporaApi } from '../lib/supabase';
@@ -30,11 +30,16 @@ export function KnowledgeCorpus() {
     // Handle OAuth redirect callbacks
     const params = new URLSearchParams(window.location.search);
     const success = params.get('success');
+    const refreshed = params.get('refreshed');
     const error = params.get('error');
     const message = params.get('message');
 
     if (success) {
-      toast.success('Successfully connected to Google Drive!');
+      if (refreshed) {
+        toast.success('OAuth tokens refreshed successfully!');
+      } else {
+        toast.success('Successfully connected to Google Drive!');
+      }
       // Clean URL
       window.history.replaceState({}, '', '/knowledge-corpus');
       loadCorpora();
@@ -301,22 +306,10 @@ export function KnowledgeCorpus() {
     };
   };
 
-  const getGoogleOAuthUrl = (driveSourceId: string) => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/oauth/callback`;
-    const scope = 'https://www.googleapis.com/auth/drive.readonly';
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: scope,
-      access_type: 'offline',
-      prompt: 'consent',
-      state: driveSourceId, // Pass drive_source_id to know which one to update
-    });
-
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  const handleReauthenticate = (corpusId: string) => {
+    // Redirect to refresh OAuth flow
+    const oauthUrl = `/api/oauth/google/refresh-init?corpus_id=${corpusId}`;
+    window.location.href = oauthUrl;
   };
 
   const formatDate = (date?: Date) => {
@@ -473,6 +466,16 @@ export function KnowledgeCorpus() {
                     <div className="flex items-center gap-2">
                       {getStatusBadge(corpus.syncStatus)}
                       <Button
+                        onClick={() => handleReauthenticate(corpus.id)}
+                        disabled={isRunning || isClearing}
+                        size="sm"
+                        variant="outline"
+                        title="Refresh OAuth tokens"
+                      >
+                        <KeyRound className="h-4 w-4 mr-2" />
+                        Refresh Auth
+                      </Button>
+                      <Button
                         onClick={() => handleSync(corpus.id)}
                         disabled={isRunning || isClearing}
                         size="sm"
@@ -509,15 +512,12 @@ export function KnowledgeCorpus() {
                           )}
                           <span>{tokenStatus.message}</span>
                         </div>
-                        {tokenStatus.isExpired && corpus.drive_source && (
+                        {tokenStatus.isExpired && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="bg-white hover:bg-gray-50"
-                            onClick={() => {
-                              const oauthUrl = getGoogleOAuthUrl(corpus.drive_source!.id);
-                              window.location.href = oauthUrl;
-                            }}
+                            onClick={() => handleReauthenticate(corpus.id)}
                           >
                             Re-authenticate
                           </Button>
