@@ -21,16 +21,28 @@ export function KnowledgeCorpus() {
   const [profiles, setProfiles] = useState<BrandProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
-
-  // Setup form fields
-  const [accessToken, setAccessToken] = useState('');
-  const [refreshToken, setRefreshToken] = useState('');
-  const [googleEmail, setGoogleEmail] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState('');
 
   useEffect(() => {
     loadCorpora();
     loadProfiles();
+
+    // Handle OAuth redirect callbacks
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+    const message = params.get('message');
+
+    if (success) {
+      toast.success('Successfully connected to Google Drive!');
+      // Clean URL
+      window.history.replaceState({}, '', '/knowledge-corpus');
+      loadCorpora();
+    } else if (error) {
+      toast.error(`OAuth failed: ${message || error}`);
+      // Clean URL
+      window.history.replaceState({}, '', '/knowledge-corpus');
+    }
   }, []);
 
   const loadCorpora = async (): Promise<Corpus[]> => {
@@ -74,14 +86,9 @@ export function KnowledgeCorpus() {
     }
   }, [selectedProfileId, profiles]);
 
-  const handleSetup = async () => {
+  const handleConnectGoogle = () => {
     if (!selectedProfileId) {
       toast.error('Please select a brand profile first');
-      return;
-    }
-
-    if (!accessToken || !refreshToken) {
-      toast.error('Please enter both access token and refresh token');
       return;
     }
 
@@ -90,34 +97,9 @@ export function KnowledgeCorpus() {
       return;
     }
 
-    setSettingUp(true);
-    try {
-      const selectedProfile = profiles.find(p => p.id === selectedProfileId);
-
-      await corporaApi.setupCorpus({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        google_drive_folder_id: selectedFolderId,
-        corpus_name: `${selectedProfile?.name || 'Test'} Knowledge Base`,
-        corpus_description: 'Documents for RAG retrieval',
-        google_account_email: googleEmail,
-        brand_profile_id: selectedProfileId,
-      });
-
-      toast.success('Knowledge Corpus setup completed!');
-
-      // Clear form
-      setAccessToken('');
-      setRefreshToken('');
-      setGoogleEmail('');
-      setShowAddForm(false); // Collapse form after successful setup
-
-      await loadCorpora();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to setup corpus');
-    } finally {
-      setSettingUp(false);
-    }
+    // Redirect to OAuth init endpoint
+    const oauthUrl = `/api/oauth/google/init?profile_id=${selectedProfileId}&folder_id=${selectedFolderId}`;
+    window.location.href = oauthUrl;
   };
 
   const handleSync = async (corpusId: string) => {
@@ -445,77 +427,17 @@ export function KnowledgeCorpus() {
                     Folders configured in the Profiles page. Folder ID from Google Drive URL.
                   </p>
                 </div>
-
-                {/* OAuth Tokens */}
-                <div className="space-y-2">
-                  <Label htmlFor="access-token">Google Access Token</Label>
-                  <Input
-                    id="access-token"
-                    type="password"
-                    placeholder="ya29.a0..."
-                    value={accessToken}
-                    onChange={e => setAccessToken(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Get from{' '}
-                    <a
-                      href="https://developers.google.com/oauthplayground/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      OAuth Playground
-                    </a>
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="refresh-token">Google Refresh Token</Label>
-                  <Input
-                    id="refresh-token"
-                    type="password"
-                    placeholder="1//04..."
-                    value={refreshToken}
-                    onChange={e => setRefreshToken(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Google Account Email (optional)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="user@example.com"
-                    value={googleEmail}
-                    onChange={e => setGoogleEmail(e.target.value)}
-                  />
-                </div>
               </>
             )}
           </div>
 
           <Button
-            onClick={handleSetup}
-            disabled={
-              settingUp ||
-              !selectedProfileId ||
-              !accessToken ||
-              !refreshToken ||
-              !selectedFolderId
-            }
+            onClick={handleConnectGoogle}
+            disabled={!selectedProfileId || !selectedFolderId}
             className="w-full gradient-primary text-white border-0"
           >
-            {settingUp ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Setting up...
-              </>
-            ) : (
-              <>
-                <Database className="h-4 w-4 mr-2" />
-                {corpora.length === 0 ? 'Initialize Knowledge Corpus' : 'Add Knowledge Corpus'}
-              </>
-            )}
+            <Database className="h-4 w-4 mr-2" />
+            Connect with Google Drive
           </Button>
         </CardContent>
         </Card>
