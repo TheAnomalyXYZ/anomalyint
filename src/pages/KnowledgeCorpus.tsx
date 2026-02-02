@@ -22,6 +22,8 @@ export function KnowledgeCorpus() {
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState('');
+  const [editingCorpusId, setEditingCorpusId] = useState<string | null>(null);
+  const [editFolderId, setEditFolderId] = useState('');
 
   useEffect(() => {
     loadCorpora();
@@ -193,6 +195,39 @@ export function KnowledgeCorpus() {
         return next;
       });
     }
+  };
+
+  const handleEditFolderId = (corpus: Corpus) => {
+    setEditingCorpusId(corpus.id);
+    setEditFolderId(corpus.googleDriveFolderId);
+  };
+
+  const handleSaveFolderId = async (corpusId: string) => {
+    if (!editFolderId.trim()) {
+      toast.error('Folder ID cannot be empty');
+      return;
+    }
+
+    try {
+      const updatedCorpus = await corporaApi.updateCorpus(corpusId, {
+        googleDriveFolderId: editFolderId.trim(),
+      });
+
+      if (updatedCorpus) {
+        setCorpora(corpora.map(c => (c.id === corpusId ? updatedCorpus : c)));
+        toast.success('Folder ID updated successfully!');
+        setEditingCorpusId(null);
+        setEditFolderId('');
+      }
+    } catch (error) {
+      console.error('Error updating folder ID:', error);
+      toast.error('Failed to update folder ID');
+    }
+  };
+
+  const handleCancelEditFolderId = () => {
+    setEditingCorpusId(null);
+    setEditFolderId('');
   };
 
   const pollJobStatus = (corpusId: string, jobId: string) => {
@@ -542,6 +577,48 @@ export function KnowledgeCorpus() {
                         {corpus.drive_source.googleAccountEmail && (
                           <span className="ml-2">({corpus.drive_source.googleAccountEmail})</span>
                         )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Google Drive Folder ID */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Google Drive Folder ID</Label>
+                    {editingCorpusId === corpus.id ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={editFolderId}
+                          onChange={(e) => setEditFolderId(e.target.value)}
+                          placeholder="Enter folder ID"
+                          className="font-mono text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveFolderId(corpus.id)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEditFolderId}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-sm bg-muted/50 px-3 py-2 rounded border">
+                          {corpus.googleDriveFolderId}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditFolderId(corpus)}
+                          disabled={isRunning || isClearing}
+                        >
+                          Edit
+                        </Button>
                       </div>
                     )}
                   </div>

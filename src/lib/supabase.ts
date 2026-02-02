@@ -811,6 +811,44 @@ export const corporaApi = {
       throw error;
     }
   },
+
+  async updateCorpus(corpusId: string, updates: { googleDriveFolderId?: string; name?: string; description?: string }) {
+    try {
+      const now = new Date().toISOString();
+      const dbUpdates: any = { updated_at: now };
+
+      if (updates.googleDriveFolderId !== undefined) dbUpdates.google_drive_folder_id = updates.googleDriveFolderId;
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+
+      const { data, error } = await supabase
+        .from('corpora')
+        .update(dbUpdates)
+        .eq('id', corpusId)
+        .select(`
+          *,
+          drive_source:drive_sources(
+            id,
+            displayName,
+            googleAccountEmail
+          ),
+          brand_profile:brand_profiles(
+            id,
+            name
+          )
+        `)
+        .single();
+
+      if (error || !data) {
+        throw new Error(`Failed to update corpus: ${error?.message || 'Unknown error'}`);
+      }
+
+      return convertDbCorpus(data);
+    } catch (error) {
+      console.error('Error updating corpus:', error);
+      throw error;
+    }
+  },
 };
 
 export const profilesApi = {
