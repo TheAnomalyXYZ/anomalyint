@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -6,10 +6,13 @@ import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock, Trash2, X, KeyRound } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock, Trash2, X, KeyRound, MessageSquare, Brain, Send, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { Corpus, IngestionJob, SyncStatus, BrandProfile } from '../lib/types';
 import { profilesApi, corporaApi } from '../lib/supabase';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { cn } from '../lib/utils';
+import OpenAI from 'openai';
 
 export function KnowledgeCorpus() {
   const [corpora, setCorpora] = useState<Corpus[]>([]);
@@ -24,6 +27,24 @@ export function KnowledgeCorpus() {
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const [editingCorpusId, setEditingCorpusId] = useState<string | null>(null);
   const [editFolderId, setEditFolderId] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [selectedChatCorpusId, setSelectedChatCorpusId] = useState<string>('');
+  const openaiClient = useRef<OpenAI | null>(null);
+
+  // Initialize OpenAI client
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (apiKey) {
+      openaiClient.current = new OpenAI({
+        apiKey: apiKey,
+        dangerouslyAllowBrowser: true
+      });
+    } else {
+      console.warn('OpenAI API key not found in environment variables');
+    }
+  }, []);
 
   useEffect(() => {
     loadCorpora();
@@ -228,6 +249,51 @@ export function KnowledgeCorpus() {
   const handleCancelEditFolderId = () => {
     setEditingCorpusId(null);
     setEditFolderId('');
+  };
+
+  const handleOpenChat = () => {
+    // Auto-select first corpus if available and none selected
+    if (corpora.length > 0 && !selectedChatCorpusId) {
+      setSelectedChatCorpusId(corpora[0].id);
+    }
+    setChatOpen(true);
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatInput.trim()) return;
+    if (!openaiClient.current) {
+      toast.error("OpenAI API not configured. Please check your API key.");
+      return;
+    }
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+
+    try {
+      const selectedCorpus = corpora.find(c => c.id === selectedChatCorpusId);
+      const systemPrompt = selectedCorpus
+        ? `You are an AI assistant with access to the "${selectedCorpus.name}" knowledge base. Answer questions using information from this corpus when relevant.`
+        : 'You are an AI assistant helping with content creation and answering questions.';
+
+      const completion = await openaiClient.current.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: userMessage }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+
+      const assistantMessage = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+      setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+    }
   };
 
   const pollJobStatus = (corpusId: string, jobId: string) => {
@@ -690,6 +756,134 @@ export function KnowledgeCorpus() {
           })}
         </div>
       )}
+
+      {/* Floating Chat Button */}
+      <Button
+        onClick={handleOpenChat}
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg gradient-primary text-white border-0 hover:scale-110 transition-transform"
+        size="icon"
+      >
+        <MessageSquare className="h-6 w-6" />
+      </Button>
+
+      {/* AI Chat Modal */}
+      <Dialog open={chatOpen} onOpenChange={setChatOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 gradient-primary text-white rounded-lg">
+                <Brain className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <DialogTitle>Knowledge Base Chat</DialogTitle>
+                <DialogDescription>
+                  Query your knowledge bases with AI
+                </DialogDescription>
+              </div>
+            </div>
+
+            {/* Knowledge Base Selector */}
+            {corpora.length > 0 && (
+              <div className="mt-4">
+                <Label className="text-sm font-medium mb-2 block">Knowledge Base</Label>
+                <Select value={selectedChatCorpusId} onValueChange={setSelectedChatCorpusId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a knowledge base" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None (General AI)</SelectItem>
+                    {corpora.map((corpus) => (
+                      <SelectItem key={corpus.id} value={corpus.id}>
+                        {corpus.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedChatCorpusId && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Querying: {corpora.find(c => c.id === selectedChatCorpusId)?.name}
+                  </p>
+                )}
+              </div>
+            )}
+          </DialogHeader>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-[400px] max-h-[50vh]">
+            {chatMessages.length === 0 ? (
+              <div className="text-center py-12">
+                <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
+                <p className="text-muted-foreground">
+                  Ask questions about your knowledge bases
+                </p>
+              </div>
+            ) : (
+              chatMessages.map((message, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "flex gap-3",
+                    message.role === 'user' ? "justify-end" : "justify-start"
+                  )}
+                >
+                  {message.role === 'assistant' && (
+                    <div className="flex items-center justify-center w-8 h-8 gradient-primary text-white rounded-lg flex-shrink-0">
+                      <Brain className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "rounded-lg px-4 py-3 max-w-[80%]",
+                      message.role === 'user'
+                        ? "bg-gradient-to-r from-indigo-600 to-purple-600"
+                        : "bg-muted"
+                    )}
+                  >
+                    <p className={cn(
+                      "text-sm whitespace-pre-wrap",
+                      message.role === 'user' ? "text-white" : ""
+                    )}>{message.content}</p>
+                  </div>
+                  {message.role === 'user' && (
+                    <div className="flex items-center justify-center w-8 h-8 bg-slate-200 rounded-lg flex-shrink-0">
+                      <User className="h-4 w-4 text-slate-600" />
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Chat Input */}
+          <div className="p-4 border-t bg-slate-50">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ask about your knowledge base..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="flex-1 bg-white"
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!chatInput.trim()}
+                className="gradient-primary text-white border-0"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Press Enter to send, Shift+Enter for new line
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
