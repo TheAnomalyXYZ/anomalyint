@@ -6,7 +6,7 @@ import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock, Trash2 } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle2, AlertCircle, Clock, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Corpus, IngestionJob, SyncStatus, BrandProfile } from '../lib/types';
 import { profilesApi, corporaApi } from '../lib/supabase';
@@ -20,6 +20,7 @@ export function KnowledgeCorpus() {
   const [settingUp, setSettingUp] = useState(false);
   const [profiles, setProfiles] = useState<BrandProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
+  const [showAddForm, setShowAddForm] = useState(false);
 
   // Setup form fields
   const [accessToken, setAccessToken] = useState('');
@@ -109,6 +110,7 @@ export function KnowledgeCorpus() {
       setAccessToken('');
       setRefreshToken('');
       setGoogleEmail('');
+      setShowAddForm(false); // Collapse form after successful setup
 
       await loadCorpora();
     } catch (error) {
@@ -368,19 +370,33 @@ export function KnowledgeCorpus() {
         </div>
       </div>
 
-      {/* Setup Form - Always Visible */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {corpora.length === 0 ? 'Initialize Knowledge Corpus' : 'Add Knowledge Corpus'}
-          </CardTitle>
-          <CardDescription>
-            {corpora.length === 0
-              ? 'Connect a Google Drive folder to create a knowledge base for RAG retrieval'
-              : 'Create an additional knowledge base for another brand profile'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      {/* Setup Form - Collapsible when corpora exist */}
+      {(corpora.length === 0 || showAddForm) ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>
+                  {corpora.length === 0 ? 'Initialize Knowledge Corpus' : 'Add Knowledge Corpus'}
+                </CardTitle>
+                <CardDescription>
+                  {corpora.length === 0
+                    ? 'Connect a Google Drive folder to create a knowledge base for RAG retrieval'
+                    : 'Create an additional knowledge base for another brand profile'}
+                </CardDescription>
+              </div>
+              {corpora.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAddForm(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
           <div className="space-y-4">
             {/* Profile Selection */}
             <div className="space-y-2">
@@ -502,7 +518,17 @@ export function KnowledgeCorpus() {
             )}
           </Button>
         </CardContent>
-      </Card>
+        </Card>
+      ) : (
+        <Button
+          onClick={() => setShowAddForm(true)}
+          variant="outline"
+          className="w-full border-dashed border-2 h-16 hover:border-indigo-500 hover:bg-indigo-50"
+        >
+          <Database className="h-5 w-5 mr-2" />
+          Add Knowledge Corpus
+        </Button>
+      )}
 
       {/* Existing Corpora List */}
       {corpora.length > 0 && (
