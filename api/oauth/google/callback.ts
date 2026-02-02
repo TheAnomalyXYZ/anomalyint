@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Construct redirect URI properly for production
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers.host || process.env.VERCEL_URL || 'localhost:3000';
-    const redirectUri = `${protocol}://${host}/api/oauth/google/callback`;
+    const redirectUri = `${protocol}://${host}/oauth/callback`;
 
     if (!clientId || !clientSecret) {
       throw new Error('Google OAuth credentials not configured');
