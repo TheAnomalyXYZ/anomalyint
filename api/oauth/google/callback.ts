@@ -44,10 +44,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('Failed to obtain tokens from Google');
     }
 
-    // Get user info
-    oauth2Client.setCredentials(tokens);
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-    const { data: userInfo } = await oauth2.userinfo.get();
+    // Get user info directly using the access token
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+    });
+
+    if (!userInfoResponse.ok) {
+      throw new Error(`Failed to get user info: ${userInfoResponse.statusText}`);
+    }
+
+    const userInfo = await userInfoResponse.json();
 
     // Save to database
     const supabase = createClient(
