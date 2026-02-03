@@ -21,7 +21,7 @@ async function deleteSeededQuestions() {
         deletedCount++;
       } catch (error: any) {
         if (error.code === 'P2025') {
-          console.log(`⚠️  Question ${id} not found (already deleted or never existed)`);
+          console.log(`⚠️  Event ${id} not found (already deleted or never existed)`);
           notFoundCount++;
         } else {
           throw error;

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { Agent, Question } from '../lib/types';
+import { Agent, Event } from '../lib/types';
 
 const prisma = new PrismaClient();
 
@@ -33,8 +33,8 @@ function convertPrismaAgent(prismaAgent: any): Agent {
   };
 }
 
-// Convert Prisma Question to our Question type
-function convertPrismaQuestion(prismaQuestion: any): Question {
+// Convert Prisma Event to our Event type
+function convertPrismaQuestion(prismaQuestion: any): Event {
   return {
     id: prismaQuestion.id,
     title: prismaQuestion.title,
@@ -96,8 +96,8 @@ export const agentsApi = {
   },
 };
 
-export const questionsApi = {
-  async getQuestions(): Promise<Question[]> {
+export const eventsApi = {
+  async getEvents(): Promise<Event[]> {
     try {
       const questions = await prisma.question.findMany({
         orderBy: {
@@ -112,7 +112,7 @@ export const questionsApi = {
     }
   },
 
-  async getQuestionsByAgent(agentId: string): Promise<Question[]> {
+  async getEventsByAgent(agentId: string): Promise<Event[]> {
     try {
       const questions = await prisma.question.findMany({
         where: { agentId },
@@ -128,7 +128,7 @@ export const questionsApi = {
     }
   },
 
-  async getQuestion(id: string): Promise<Question | null> {
+  async getQuestion(id: string): Promise<Event | null> {
     try {
       const question = await prisma.question.findUnique({
         where: { id },

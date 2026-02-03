@@ -1,8 +1,8 @@
 // Mock data for the dashboard
-import { Question, Answer, KPIStat, AuditEvent, Agent, AIResolutionProposal } from './types';
+import { Event, Answer, KPIStat, AuditEvent, Agent, AIResolutionProposal } from './types';
 
 // Unified mock questions covering all lifecycle states
-export const mockQuestions: Question[] = [
+export const mockQuestions: Event[] = [
   // AI Suggestions (pending state)
   {
     id: 'q-pending-1',
