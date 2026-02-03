@@ -295,7 +295,7 @@ export function Reports() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Question Lifecycle</CardTitle>
+                <CardTitle>Event Lifecycle</CardTitle>
                 <CardDescription>Questions by current state</CardDescription>
               </CardHeader>
               <CardContent>

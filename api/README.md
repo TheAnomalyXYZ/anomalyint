@@ -1,16 +1,16 @@
 # API Endpoints
 
-## Save Questions Endpoint
+## Save Events Endpoint
 
-**Endpoint:** `POST /api/save-questions`
+**Endpoint:** `POST /api/save-events`
 
-This endpoint allows you to create and save questions directly to the database.
+This endpoint allows you to create and save events directly to the database.
 
 ### Request Body
 
 ```json
 {
-  "questions": [
+  "events": [
     {
       "agentId": "cm4r123abc",
       "title": "Will Elon Musk announce a new Tesla model by March 2025?",
@@ -28,18 +28,18 @@ This endpoint allows you to create and save questions directly to the database.
 
 ### Request Parameters
 
-Each question object in the `questions` array must include:
+Each event object in the `events` array must include:
 
-- `agentId` (required): The ID of the agent creating this question
-- `title` (required): The question title/text
-- `resolutionCriteria` (required): How the question will be resolved
+- `agentId` (required): The ID of the agent creating this event
+- `title` (required): The event title/text
+- `resolutionCriteria` (required): How the event will be resolved
 - `answerEndAt` (required): ISO date string when answering closes
-- `settlementAt` (required): ISO date string when the question resolves
-- `description` (optional): Additional context for the question
+- `settlementAt` (required): ISO date string when the event resolves
+- `description` (optional): Additional context for the event
 - `categories` (optional): Array of category strings. If not provided, automatically uses the agent's categories
-- `liveDate` (optional): ISO date string when question goes live
-- `state` (optional): Question state - `'pending'`, `'approved'`, or `'published'` (default: `'pending'`)
-- `aiScore` (optional): AI quality score from 0.00 to 1.00 (default: `0.75`). Questions appear in "All AI Agent Generated" section
+- `liveDate` (optional): ISO date string when event goes live
+- `state` (optional): Event state - `'pending'`, `'approved'`, or `'published'` (default: `'pending'`)
+- `aiScore` (optional): AI quality score from 0.00 to 1.00 (default: `0.75`). Events appear in "All AI Agent Generated" section
 
 ### Response
 
@@ -49,7 +49,7 @@ Success response (200):
   "success": 1,
   "failed": 0,
   "total": 1,
-  "questions": [
+  "events": [
     {
       "id": "gq1765898457064_0",
       "title": "Will Elon Musk announce a new Tesla model by March 2025?"
@@ -64,7 +64,7 @@ Partial success response (200):
   "success": 1,
   "failed": 1,
   "total": 2,
-  "questions": [
+  "events": [
     {
       "id": "gq1765898457064_0",
       "title": "Will Elon Musk announce a new Tesla model by March 2025?"
@@ -79,7 +79,7 @@ Partial success response (200):
 Error response (400):
 ```json
 {
-  "error": "Invalid questions array"
+  "error": "Invalid events array"
 }
 ```
 
@@ -95,10 +95,10 @@ Error response (500):
 
 #### cURL
 ```bash
-curl -X POST https://your-domain.vercel.app/api/save-questions \
+curl -X POST https://your-domain.vercel.app/api/save-events \
   -H "Content-Type: application/json" \
   -d '{
-    "questions": [
+    "events": [
       {
         "agentId": "cm4r123abc",
         "title": "Will Elon Musk announce a new Tesla model by March 2025?",
@@ -112,13 +112,13 @@ curl -X POST https://your-domain.vercel.app/api/save-questions \
 
 #### JavaScript/Fetch
 ```javascript
-const response = await fetch('/api/save-questions', {
+const response = await fetch('/api/save-events', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    questions: [
+    events: [
       {
         agentId: 'cm4r123abc',
         title: 'Will Elon Musk announce a new Tesla model by March 2025?',
@@ -134,17 +134,17 @@ const response = await fetch('/api/save-questions', {
 });
 
 const result = await response.json();
-console.log(`Created ${result.success} questions, ${result.failed} failed`);
+console.log(`Created ${result.success} events, ${result.failed} failed`);
 ```
 
 #### n8n Webhook
 You can configure your n8n workflow to POST directly to this endpoint.
 
-1. Add an HTTP Request node after your question generation logic
+1. Add an HTTP Request node after your event generation logic
 2. Set Method to POST
-3. Set URL to `https://your-domain.vercel.app/api/save-questions`
-4. Set Body to JSON with the questions array
-5. The response will tell you how many questions were successfully created
+3. Set URL to `https://your-domain.vercel.app/api/save-events`
+4. Set Body to JSON with the events array
+5. The response will tell you how many events were successfully created
 
 ### Environment Variables
 
@@ -155,13 +155,13 @@ The endpoint requires the following environment variables to be set:
 
 ### Notes
 
-- The endpoint validates that the `agentId` exists before creating questions
+- The endpoint validates that the `agentId` exists before creating events
 - **Categories are automatically inherited from the agent** if not provided in the request
-- **AI Score defaults to 0.75** if not provided, ensuring questions appear in "All AI Agent Generated" section
-- All questions are created with default values for pool sizes (0) and answer count (0)
+- **AI Score defaults to 0.75** if not provided, ensuring events appear in "All AI Agent Generated" section
+- All events are created with default values for pool sizes (0) and answer count (0)
 - The `created_at` and `updated_at` timestamps are automatically set
-- Questions default to `'pending'` state if not specified
-- Question IDs are auto-generated in the format: `gq{timestamp}_{random}`
+- Events default to `'pending'` state if not specified
+- Event IDs are auto-generated in the format: `gq{timestamp}_{random}`
 
 ---
 
@@ -177,14 +177,14 @@ This endpoint allows you to save Nova ratings directly to the database without g
 {
   "ratings": [
     {
-      "questionId": "gq1765814091400_0",
+      "eventId": "gq1765814091400_0",
       "rating": "S",
       "ratingCategory": "Short Time Frame & Verifiable",
       "confidence": 85,
       "sparkline": [75, 80, 85]
     },
     {
-      "questionId": "gq1765814091400_1",
+      "eventId": "gq1765814091400_1",
       "rating": "A",
       "ratingCategory": "High Quality Market",
       "confidence": 92,
@@ -198,9 +198,9 @@ This endpoint allows you to save Nova ratings directly to the database without g
 
 Each rating object in the `ratings` array must include:
 
-- `questionId` (required): The ID of the question to rate
+- `eventId` (required): The ID of the event to rate
 - `rating` (required): The rating value, one of: `'A'`, `'B'`, `'C'`, `'D'`, `'E'`, `'F'`, or `'S'`
-- `ratingCategory` (required): A string describing the category/reason for the rating (required to support multiple ratings per question)
+- `ratingCategory` (required): A string describing the category/reason for the rating (required to support multiple ratings per event)
 - `confidence` (optional): Confidence score as a number (0-100)
 - `sparkline` (optional): Array of numbers representing confidence history over time
 
@@ -251,7 +251,7 @@ curl -X POST https://your-domain.vercel.app/api/save-ratings \
   -d '{
     "ratings": [
       {
-        "questionId": "gq1765814091400_0",
+        "eventId": "gq1765814091400_0",
         "rating": "S",
         "ratingCategory": "Short Time Frame & Verifiable"
       }
@@ -269,7 +269,7 @@ const response = await fetch('/api/save-ratings', {
   body: JSON.stringify({
     ratings: [
       {
-        questionId: 'gq1765814091400_0',
+        eventId: 'gq1765814091400_0',
         rating: 'S',
         ratingCategory: 'Short Time Frame & Verifiable',
         confidence: 85,
@@ -301,8 +301,8 @@ The endpoint requires the following environment variables to be set:
 
 ### Notes
 
-- The endpoint will automatically create new ratings or update existing ones based on `questionId`
+- The endpoint will automatically create new ratings or update existing ones based on `eventId`
 - All ratings in the request are processed independently - partial failures are possible
-- If a rating already exists for a question, it will be updated with the new values
+- If a rating already exists for an event, it will be updated with the new values
 - The `created_at` timestamp is only set when creating a new rating
 - The `updated_at` timestamp is updated on every save operation

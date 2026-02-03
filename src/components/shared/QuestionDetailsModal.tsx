@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { Badge } from "../ui/badge";
-import { ProposedQuestion, Agent } from "../../lib/types";
+import { ProposedEvent, Agent } from "../../lib/types";
 import { mockAgents } from "../../lib/mock-data";
 import { formatDate, cn } from "../../lib/utils";
 import { ExternalLink, Calendar as CalendarIcon, X } from "lucide-react";
@@ -25,12 +25,12 @@ import {
 import { toast } from "sonner";
 
 interface QuestionDetailsModalProps {
-  question: ProposedQuestion | null;
+  question: ProposedEvent | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave?: (updatedQuestion: ProposedQuestion) => void;
-  onApprove?: (question: ProposedQuestion) => void;
-  onReject?: (question: ProposedQuestion) => void;
+  onSave?: (updatedQuestion: ProposedEvent) => void;
+  onApprove?: (question: ProposedEvent) => void;
+  onReject?: (question: ProposedEvent) => void;
   showActions?: boolean;
 }
 
@@ -44,7 +44,7 @@ export function QuestionDetailsModal({
   showActions = true,
 }: QuestionDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(true);
-  const [editedQuestion, setEditedQuestion] = useState<ProposedQuestion | null>(null);
+  const [editedQuestion, setEditedQuestion] = useState<ProposedEvent | null>(null);
   const [liveDatePopoverOpen, setLiveDatePopoverOpen] = useState(false);
   const [answerEndPopoverOpen, setAnswerEndPopoverOpen] = useState(false);
   const [settlementPopoverOpen, setSettlementPopoverOpen] = useState(false);
@@ -91,7 +91,7 @@ export function QuestionDetailsModal({
   const handleSave = () => {
     if (onSave && editedQuestion) {
       onSave(editedQuestion);
-      toast.success("Question updated successfully");
+      toast.success("Event updated successfully");
     }
     onOpenChange(false);
   };
@@ -104,7 +104,7 @@ export function QuestionDetailsModal({
   const handleApprove = () => {
     if (onApprove && editedQuestion) {
       onApprove(editedQuestion);
-      toast.success("Question approved and moved to drafts");
+      toast.success("Event approved and moved to drafts");
     }
     onOpenChange(false);
   };
@@ -112,7 +112,7 @@ export function QuestionDetailsModal({
   const handleReject = () => {
     if (onReject && editedQuestion) {
       onReject(editedQuestion);
-      toast.success("Question rejected");
+      toast.success("Event rejected");
     }
     onOpenChange(false);
   };
@@ -140,7 +140,7 @@ export function QuestionDetailsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl pr-6">Edit Question Details</DialogTitle>
+          <DialogTitle className="text-2xl pr-6">Edit Event Details</DialogTitle>
           <DialogDescription>
             Update the question details below. All dates and times are in EST timezone.
           </DialogDescription>

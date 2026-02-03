@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { Badge } from "../ui/badge";
-import { Question } from "../../lib/types";
+import { Event } from "../../lib/types";
 import { formatDate, cn } from "../../lib/utils";
 import { ExternalLink, Calendar as CalendarIcon, X } from "lucide-react";
 import { Button } from "../ui/button";
@@ -31,11 +31,11 @@ import {
 import { toast } from "sonner";
 
 interface EditQuestionDetailsModalProps {
-  question: Question | null;
+  question: Event | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (updatedQuestion: Question) => void;
-  onQueueLive?: (updatedQuestion: Question) => void;
+  onSave: (updatedQuestion: Event) => void;
+  onQueueLive?: (updatedQuestion: Event) => void;
 }
 
 export function EditQuestionDetailsModal({
@@ -45,7 +45,7 @@ export function EditQuestionDetailsModal({
   onSave,
   onQueueLive,
 }: EditQuestionDetailsModalProps) {
-  const [editedQuestion, setEditedQuestion] = useState<Question | null>(null);
+  const [editedQuestion, setEditedQuestion] = useState<Event | null>(null);
   const [liveDatePopoverOpen, setLiveDatePopoverOpen] = useState(false);
   const [answerEndPopoverOpen, setAnswerEndPopoverOpen] = useState(false);
   const [settlementPopoverOpen, setSettlementPopoverOpen] = useState(false);
@@ -86,26 +86,26 @@ export function EditQuestionDetailsModal({
 
   const handleSaveDraft = () => {
     if (editedQuestion) {
-      const updatedQuestion: Question = {
+      const updatedQuestion: Event = {
         ...editedQuestion,
         state: 'draft',
         updatedAt: new Date(),
       };
       onSave(updatedQuestion);
-      toast.success("Question saved as draft");
+      toast.success("Event saved as draft");
     }
     onOpenChange(false);
   };
 
   const handleQueueLive = () => {
     if (editedQuestion && onQueueLive) {
-      const updatedQuestion: Question = {
+      const updatedQuestion: Event = {
         ...editedQuestion,
         state: 'awaiting_review',
         updatedAt: new Date(),
       };
       onQueueLive(updatedQuestion);
-      toast.success("Question queued for review");
+      toast.success("Event queued for review");
     }
     onOpenChange(false);
   };
@@ -138,7 +138,7 @@ export function EditQuestionDetailsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl pr-6">Edit Question Details</DialogTitle>
+          <DialogTitle className="text-2xl pr-6">Edit Event Details</DialogTitle>
           <DialogDescription>
             Update the question details below. All dates and times are in EST timezone.
           </DialogDescription>
@@ -147,7 +147,7 @@ export function EditQuestionDetailsModal({
         <div className="space-y-6 py-4">
           {/* Title */}
           <div>
-            <Label htmlFor="title">Question Title</Label>
+            <Label htmlFor="title">Event Title</Label>
             <Input
               id="title"
               value={editedQuestion.title}
@@ -172,9 +172,9 @@ export function EditQuestionDetailsModal({
             />
           </div>
 
-          {/* Question Type */}
+          {/* Event Type */}
           <div>
-            <Label htmlFor="type">Question Type</Label>
+            <Label htmlFor="type">Event Type</Label>
             <Select
               value={editedQuestion.type || "binary"}
               onValueChange={(value) => setEditedQuestion({ ...editedQuestion, type: value })}

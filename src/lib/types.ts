@@ -1,6 +1,6 @@
 // Core data types for the predictive markets dashboard
 
-export type QuestionState =
+export type EventState =
   | 'pending'           // AI suggestion awaiting review
   | 'approved'          // Approved and queued for publishing
   | 'rejected'          // Rejected suggestion
@@ -17,7 +17,7 @@ export type ReviewStatus = 'pending' | 'approved' | 'revision_requested';
 
 export type Outcome = 'YES' | 'NO' | 'INVALID';
 
-export type QuestionType = 'binary' | 'multi-option';
+export type EventType = 'binary' | 'multi-option';
 
 export interface NovaRating {
   rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S';
@@ -26,11 +26,11 @@ export interface NovaRating {
   sparkline?: number[];
 }
 
-export interface Question {
+export interface Event {
   id: string;
   title: string;
   description: string;
-  state: QuestionState;
+  state: EventState;
   liveDate?: Date;
   answerEndAt: Date;
   settlementAt: Date;
@@ -38,7 +38,7 @@ export interface Question {
   categories: string[];
   topic?: string;
   agentId: string;
-  pushedTo?: string[]; // Platforms where question is pushed (e.g., "Synapse Markets", "Vectra Markets")
+  pushedTo?: string[]; // Platforms where event is pushed (e.g., "Synapse Markets", "Vectra Markets")
 
   // Legacy single rating fields (kept for backward compatibility)
   rating?: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S'; // Nova rating
@@ -63,16 +63,16 @@ export interface Question {
 
   createdAt: Date;
   updatedAt: Date;
-  type?: QuestionType;
+  type?: EventType;
 }
 
 // Alias for backward compatibility
-export type ProposedQuestion = Question;
+export type ProposedEvent = Event;
 
 export interface Answer {
   id: string;
-  questionId: string;
-  questionTitle: string;
+  eventId: string;
+  eventTitle: string;
   choice: 'YES' | 'NO';
   closedAt: Date;
 }
@@ -125,13 +125,13 @@ export interface Agent {
   description: string;
   categories: string[];
   sources: AgentSource[];
-  questionPrompt: string;
+  eventPrompt: string;
   secondFilterPrompt?: string;
   resolutionPrompt?: string;
   baseModel: string;
   frequency: AgentFrequency;
   status: 'active' | 'paused' | 'error';
-  questionsCreated: number;
+  eventsCreated: number;
   lastRun?: Date;
   nextRun?: Date;
   createdAt: Date;
@@ -148,7 +148,7 @@ export type ResolutionProposalStatus =
 
 export interface AIResolutionProposal {
   id: string;
-  questionId: string;
+  eventId: string;
   resolution: Outcome;
   confidenceScore: number; // 0.0000 to 1.0000
   reasoning: string;

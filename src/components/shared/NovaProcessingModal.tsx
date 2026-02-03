@@ -14,14 +14,14 @@ import { Checkbox } from '../ui/checkbox';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Star, CheckCircle2, AlertCircle, Loader2, FileText, RefreshCw, Trash2 } from 'lucide-react';
-import { Question } from '../../lib/types';
+import { Event } from '../../lib/types';
 import { toast } from 'sonner';
 import { novaRatingsApi } from '../../lib/supabase'; // Still needed for deleteRating functionality
 
 interface NovaProcessingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  questions: Question[];
+  questions: Event[];
   onComplete: () => void;
 }
 
@@ -251,7 +251,7 @@ export function NovaProcessingModal({
     try {
       // Delete the existing rating
       await novaRatingsApi.deleteRating(questionId);
-      toast.success('Rating removed. Question ready for reprocessing.');
+      toast.success('Rating removed. Event ready for reprocessing.');
       onComplete(); // Refresh the questions list
     } catch (error) {
       console.error('Error removing rating:', error);
@@ -343,7 +343,7 @@ export function NovaProcessingModal({
               </span>
             </div>
 
-            {/* Question List - Scrollable */}
+            {/* Event List - Scrollable */}
             {unprocessedQuestions.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-center text-muted-foreground border border-t-0 rounded-b-lg bg-slate-50 py-12">
                 <div>

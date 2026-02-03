@@ -30,8 +30,8 @@ import {
 } from "../components/ui/tooltip";
 import { Sparkles, Check, X, ChevronDown, ChevronLeft, ChevronRight, Search, Clock, Tag, TrendingUp, Pause, Edit, XCircle, Play, Loader2, Trash2, Undo2, Send } from "lucide-react";
 import { CardHeader, CardTitle } from "../components/ui/card";
-import { questionsApi, agentsApi } from "../lib/supabase";
-import { ProposedQuestion, Agent } from "../lib/types";
+import { eventsApi, agentsApi } from "../lib/supabase";
+import { ProposedEvent, Agent } from "../lib/types";
 import { formatDate, formatDateTime, getCategoryColor } from "../lib/utils";
 import { EmptyState } from "../components/shared/EmptyState";
 import { QuestionDetailsModal } from "../components/shared/QuestionDetailsModal";
@@ -40,14 +40,14 @@ import { toast } from "sonner";
 
 export function Markets() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [questions, setQuestions] = useState<ProposedQuestion[]>([]);
+  const [questions, setQuestions] = useState<ProposedEvent[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] = useState<ProposedQuestion | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<ProposedEvent | null>(null);
   const [activeTab, setActiveTab] = useState<"suggestions" | "queued" | "live" | "paused" | "deleted">("queued");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [platformDialogOpen, setPlatformDialogOpen] = useState(false);
@@ -100,7 +100,7 @@ export function Markets() {
     setLoading(true);
     try {
       const [questionsData, agentsData] = await Promise.all([
-        questionsApi.getQuestions(),
+        eventsApi.getEvents(),
         agentsApi.getAgents(),
       ]);
       setQuestions(questionsData);
@@ -114,7 +114,7 @@ export function Markets() {
   };
 
   // Helper function to get agent name from a proposal
-  const getAgentName = (proposal: ProposedQuestion): string => {
+  const getAgentName = (proposal: ProposedEvent): string => {
     const agent = agents.find(a => a.id === proposal.agentId);
     return agent?.name || 'Unknown Agent';
   };
@@ -217,13 +217,13 @@ export function Markets() {
 
     const question = questions.find((p) => p.id === questionToApprove);
     if (question) {
-      const updatedQuestion = await questionsApi.updateQuestion(questionToApprove, {
+      const updatedQuestion = await eventsApi.updateEvent(questionToApprove, {
         state: 'approved',
         pushedTo: selectedPlatforms
       });
 
       if (updatedQuestion) {
-        toast.success(`Question approved and queued for ${selectedPlatforms.join(', ')}`);
+        toast.success(`Event approved and queued for ${selectedPlatforms.join(', ')}`);
         setQuestions(questions.map(q =>
           q.id === questionToApprove ? updatedQuestion : q
         ));
@@ -240,9 +240,9 @@ export function Markets() {
   const handleReject = async (id: string) => {
     const question = questions.find((p) => p.id === id);
     if (question) {
-      const updatedQuestion = await questionsApi.updateQuestionState(id, 'rejected');
+      const updatedQuestion = await eventsApi.updateQuestionState(id, 'rejected');
       if (updatedQuestion) {
-        toast.success("Question moved to deleted");
+        toast.success("Event moved to deleted");
         setQuestions(questions.map(q =>
           q.id === id ? updatedQuestion : q
         ));
@@ -253,16 +253,16 @@ export function Markets() {
   };
 
   const handlePermanentDelete = async (id: string) => {
-    const success = await questionsApi.deleteQuestion(id);
+    const success = await eventsApi.deleteQuestion(id);
     if (success) {
-      toast.success("Question permanently deleted");
+      toast.success("Event permanently deleted");
       setQuestions(questions.filter(q => q.id !== id));
     } else {
       toast.error("Failed to permanently delete question");
     }
   };
 
-  const handleApproveFromModal = (question: ProposedQuestion) => {
+  const handleApproveFromModal = (question: ProposedEvent) => {
     // Close the details modal first
     setDetailsModalOpen(false);
     // Open platform selection dialog
@@ -271,7 +271,7 @@ export function Markets() {
     setPlatformDialogOpen(true);
   };
 
-  const handleRejectFromModal = (question: ProposedQuestion) => {
+  const handleRejectFromModal = (question: ProposedEvent) => {
     setQuestions(questions.map(q =>
       q.id === question.id ? { ...q, state: 'rejected' as const, updatedAt: new Date() } : q
     ));
@@ -288,7 +288,7 @@ export function Markets() {
   const handleCloseNow = (id: string) => {
     const question = questions.find((q) => q.id === id);
     if (question) {
-      toast.success("Question closed and moved to awaiting resolution");
+      toast.success("Event closed and moved to awaiting resolution");
       setQuestions(questions.map(q =>
         q.id === id ? { ...q, state: 'awaiting_resolution' as const, updatedAt: new Date() } : q
       ));
@@ -298,7 +298,7 @@ export function Markets() {
   const handlePause = (id: string) => {
     const question = questions.find((q) => q.id === id);
     if (question) {
-      toast.success("Question paused");
+      toast.success("Event paused");
       setQuestions(questions.map(q =>
         q.id === id ? { ...q, state: 'paused' as const, updatedAt: new Date() } : q
       ));
@@ -308,35 +308,35 @@ export function Markets() {
   const handleUnpause = (id: string) => {
     const question = questions.find((q) => q.id === id);
     if (question) {
-      toast.success("Question resumed");
+      toast.success("Event resumed");
       setQuestions(questions.map(q =>
         q.id === id ? { ...q, state: 'published' as const, updatedAt: new Date() } : q
       ));
     }
   };
 
-  const handleEditDetails = (proposal: ProposedQuestion) => {
+  const handleEditDetails = (proposal: ProposedEvent) => {
     setSelectedQuestion(proposal);
     setDetailsModalOpen(true);
   };
 
-  const handleSaveQuestion = (updatedQuestion: ProposedQuestion) => {
+  const handleSaveQuestion = (updatedQuestion: ProposedEvent) => {
     setQuestions(questions.map(q =>
       q.id === updatedQuestion.id ? { ...updatedQuestion, updatedAt: new Date() } : q
     ));
-    toast.success("Question details updated");
+    toast.success("Event details updated");
   };
 
   const handleUnqueue = async (id: string) => {
     const question = questions.find((q) => q.id === id);
     if (question) {
-      const updatedQuestion = await questionsApi.updateQuestion(id, {
+      const updatedQuestion = await eventsApi.updateEvent(id, {
         state: 'pending',
         pushedTo: []
       });
 
       if (updatedQuestion) {
-        toast.success("Question moved back to suggestions");
+        toast.success("Event moved back to suggestions");
         setQuestions(questions.map(q =>
           q.id === id ? updatedQuestion : q
         ));
@@ -349,9 +349,9 @@ export function Markets() {
   const handleDeleteQueued = async (id: string) => {
     const question = questions.find((q) => q.id === id);
     if (question) {
-      const updatedQuestion = await questionsApi.updateQuestionState(id, 'rejected');
+      const updatedQuestion = await eventsApi.updateQuestionState(id, 'rejected');
       if (updatedQuestion) {
-        toast.success("Question deleted");
+        toast.success("Event deleted");
         setQuestions(questions.map(q =>
           q.id === id ? updatedQuestion : q
         ));
@@ -377,13 +377,13 @@ export function Markets() {
     const question = questions.find((q) => q.id === id);
 
     if (!question) {
-      toast.error("Question not found");
+      toast.error("Event not found");
       return;
     }
 
     // Check if the question has pushedTo platforms
     if (!question.pushedTo || question.pushedTo.length === 0) {
-      toast.error("Question must have platforms selected before pushing");
+      toast.error("Event must have platforms selected before pushing");
       return;
     }
 
@@ -391,8 +391,8 @@ export function Markets() {
       // Push to each selected platform
       const pushPromises = question.pushedTo.map(async (platform: string) => {
         const apiPath = platform === 'synapse'
-          ? '/api/synapse/api/predictive/wager-questions'
-          : `/api/${platform}/api/predictive/wager-questions`;
+          ? '/api/synapse/api/predictive/wager-events'
+          : `/api/${platform}/api/predictive/wager-events`;
 
         const response = await fetch(apiPath, {
           method: 'POST',
@@ -421,10 +421,10 @@ export function Markets() {
       const pushedPlatforms = await Promise.all(pushPromises);
 
       // Update the question state to published in database
-      const updatedQuestion = await questionsApi.updateQuestionState(id, 'published');
+      const updatedQuestion = await eventsApi.updateQuestionState(id, 'published');
 
       if (updatedQuestion) {
-        toast.success(`Question pushed to ${pushedPlatforms.join(', ')} and is now live!`);
+        toast.success(`Event pushed to ${pushedPlatforms.join(', ')} and is now live!`);
         setQuestions(questions.map(q =>
           q.id === id ? updatedQuestion : q
         ));
@@ -1697,7 +1697,7 @@ export function Markets() {
         </DialogContent>
       </Dialog>
 
-      {/* Question Details Modal */}
+      {/* Event Details Modal */}
       <QuestionDetailsModal
         question={selectedQuestion}
         open={detailsModalOpen}
@@ -1712,7 +1712,7 @@ export function Markets() {
       <NovaProcessingModal
         open={novaProcessingOpen}
         onOpenChange={setNovaProcessingOpen}
-        questions={questions.filter((q: ProposedQuestion) => q.state === 'pending')}
+        questions={questions.filter((q: ProposedEvent) => q.state === 'pending')}
         onComplete={loadData}
       />
     </div>

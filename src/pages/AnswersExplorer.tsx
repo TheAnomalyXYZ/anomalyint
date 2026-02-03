@@ -114,7 +114,7 @@ export function AnswersExplorer() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Question</TableHead>
+                <TableHead>Event</TableHead>
                 <TableHead>Choice</TableHead>
                 <TableHead>Closed At</TableHead>
               </TableRow>

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Agent, Question, BrandProfile } from './types';
+import { Agent, Event, BrandProfile } from './types';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -23,12 +23,12 @@ function convertDbAgent(dbAgent: any): Agent {
         feedUrl: source.config_feed_url,
       },
     })) || [],
-    questionPrompt: dbAgent.question_prompt,
+    eventPrompt: dbAgent.event_prompt,
     resolutionPrompt: dbAgent.resolution_prompt,
     baseModel: dbAgent.base_model,
     frequency: dbAgent.frequency,
     status: dbAgent.status,
-    questionsCreated: dbAgent.questions_created,
+    eventsCreated: dbAgent.events_created,
     lastRun: dbAgent.last_run ? new Date(dbAgent.last_run) : undefined,
     nextRun: dbAgent.next_run ? new Date(dbAgent.next_run) : undefined,
     createdAt: new Date(dbAgent.created_at),
@@ -36,14 +36,14 @@ function convertDbAgent(dbAgent: any): Agent {
   };
 }
 
-// Helper function to convert database question to our Question type
-function convertDbQuestion(dbQuestion: any): Question {
+// Helper function to convert database event to our Event type
+function convertDbEvent(dbEvent: any): Event {
   // Convert nova_ratings to array - handle both array and single object
   let ratingsArray: any[] = [];
-  if (dbQuestion.nova_ratings) {
-    ratingsArray = Array.isArray(dbQuestion.nova_ratings)
-      ? dbQuestion.nova_ratings
-      : [dbQuestion.nova_ratings];
+  if (dbEvent.nova_ratings) {
+    ratingsArray = Array.isArray(dbEvent.nova_ratings)
+      ? dbEvent.nova_ratings
+      : [dbEvent.nova_ratings];
   }
 
   const novaRatings = ratingsArray.map((r: any) => ({
@@ -57,18 +57,18 @@ function convertDbQuestion(dbQuestion: any): Question {
   const firstRating = novaRatings[0];
 
   return {
-    id: dbQuestion.id,
-    title: dbQuestion.title,
-    description: dbQuestion.description || '',
-    state: dbQuestion.state,
-    liveDate: dbQuestion.live_date ? new Date(dbQuestion.live_date) : undefined,
-    answerEndAt: new Date(dbQuestion.answer_end_at),
-    settlementAt: new Date(dbQuestion.settlement_at),
-    resolutionCriteria: dbQuestion.resolution_criteria,
-    agentId: dbQuestion.agent_id,
-    pushedTo: dbQuestion.pushed_to || [],
-    reviewStatus: dbQuestion.review_status,
-    outcome: dbQuestion.outcome,
+    id: dbEvent.id,
+    title: dbEvent.title,
+    description: dbEvent.description || '',
+    state: dbEvent.state,
+    liveDate: dbEvent.live_date ? new Date(dbEvent.live_date) : undefined,
+    answerEndAt: new Date(dbEvent.answer_end_at),
+    settlementAt: new Date(dbEvent.settlement_at),
+    resolutionCriteria: dbEvent.resolution_criteria,
+    agentId: dbEvent.agent_id,
+    pushedTo: dbEvent.pushed_to || [],
+    reviewStatus: dbEvent.review_status,
+    outcome: dbEvent.outcome,
     // Legacy single rating fields (for backward compatibility)
     rating: firstRating?.rating,
     ratingCategory: firstRating?.ratingCategory,
@@ -77,14 +77,16 @@ function convertDbQuestion(dbQuestion: any): Question {
     // New multiple ratings array
     novaRatings: novaRatings.length > 0 ? novaRatings : undefined,
     riskFlags: [],
-    categories: dbQuestion.categories || [],
-    type: dbQuestion.type || 'binary',
-    poolTotal: dbQuestion.pool_total ? parseFloat(dbQuestion.pool_total) : 0,
-    poolYes: dbQuestion.pool_yes ? parseFloat(dbQuestion.pool_yes) : 0,
-    poolNo: dbQuestion.pool_no ? parseFloat(dbQuestion.pool_no) : 0,
-    answerCount: dbQuestion.answer_count || 0,
-    createdAt: new Date(dbQuestion.created_at),
-    updatedAt: new Date(dbQuestion.updated_at),
+    categories: dbEvent.categories || [],
+    type: dbEvent.type || 'binary',
+    poolSize: {
+      total: dbEvent.pool_total ? parseFloat(dbEvent.pool_total) : 0,
+      yes: dbEvent.pool_yes ? parseFloat(dbEvent.pool_yes) : 0,
+      no: dbEvent.pool_no ? parseFloat(dbEvent.pool_no) : 0,
+    },
+    answerCount: dbEvent.answer_count || 0,
+    createdAt: new Date(dbEvent.created_at),
+    updatedAt: new Date(dbEvent.updated_at),
   };
 }
 
@@ -147,12 +149,12 @@ export const agentsApi = {
           name: agent.name,
           description: agent.description || '',
           categories: agent.categories || [],
-          question_prompt: agent.questionPrompt,
+          event_prompt: agent.eventPrompt,
           resolution_prompt: agent.resolutionPrompt,
           base_model: agent.baseModel || 'chatgpt-4o-latest',
           frequency: agent.frequency || 'on_update',
           status: agent.status || 'active',
-          questions_created: 0,
+          events_created: 0,
           created_at: now,
           updated_at: now,
         })
@@ -205,7 +207,7 @@ export const agentsApi = {
           name: agent.name,
           description: agent.description,
           categories: agent.categories,
-          question_prompt: agent.questionPrompt,
+          event_prompt: agent.eventPrompt,
           resolution_prompt: agent.resolutionPrompt,
           base_model: agent.baseModel,
           frequency: agent.frequency,
@@ -281,27 +283,27 @@ export const agentsApi = {
   },
 };
 
-export const questionsApi = {
-  async createQuestion(question: Partial<Question>): Promise<Question | null> {
+export const eventsApi = {
+  async createEvent(event: Partial<Event>): Promise<Event | null> {
     try {
-      // Generate a unique ID for the question
-      const questionId = question.id || crypto.randomUUID();
+      // Generate a unique ID for the event
+      const eventId = event.id || crypto.randomUUID();
       const now = new Date().toISOString();
 
       const { data, error } = await supabase
-        .from('questions')
+        .from('events')
         .insert({
-          id: questionId,
-          title: question.title,
-          description: question.description,
-          state: question.state || 'pending',
-          live_date: question.liveDate?.toISOString(),
-          answer_end_at: question.answerEndAt?.toISOString(),
-          settlement_at: question.settlementAt?.toISOString(),
-          resolution_criteria: question.resolutionCriteria,
-          agent_id: question.agentId,
-          type: question.type || 'binary',
-          categories: question.categories || [],
+          id: eventId,
+          title: event.title,
+          description: event.description,
+          state: event.state || 'pending',
+          live_date: event.liveDate?.toISOString(),
+          answer_end_at: event.answerEndAt?.toISOString(),
+          settlement_at: event.settlementAt?.toISOString(),
+          resolution_criteria: event.resolutionCriteria,
+          agent_id: event.agentId,
+          type: event.type || 'binary',
+          categories: event.categories || [],
           created_at: now,
           updated_at: now,
         })
@@ -309,21 +311,21 @@ export const questionsApi = {
         .single();
 
       if (error) {
-        console.error('Error creating question:', error);
+        console.error('Error creating event:', error);
         return null;
       }
 
-      return data ? convertDbQuestion(data) : null;
+      return data ? convertDbEvent(data) : null;
     } catch (error) {
-      console.error('Error creating question:', error);
+      console.error('Error creating event:', error);
       return null;
     }
   },
 
-  async getQuestions(): Promise<Question[]> {
+  async getEvents(): Promise<Event[]> {
     try {
       const { data, error } = await supabase
-        .from('questions')
+        .from('events')
         .select(`
           *,
           nova_ratings(rating, rating_category, confidence, sparkline)
@@ -331,58 +333,58 @@ export const questionsApi = {
         .order('created_at', { ascending: false});
 
       if (error) {
-        console.error('Error fetching questions:', error);
+        console.error('Error fetching events:', error);
         return [];
       }
 
-      return (data || []).map(convertDbQuestion);
+      return (data || []).map(convertDbEvent);
     } catch (error) {
-      console.error('Error fetching questions:', error);
+      console.error('Error fetching events:', error);
       return [];
     }
   },
 
-  async getQuestionsByAgent(agentId: string): Promise<Question[]> {
+  async getEventsByAgent(agentId: string): Promise<Event[]> {
     try {
       const { data, error } = await supabase
-        .from('questions')
+        .from('events')
         .select('*')
         .eq('agent_id', agentId)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching questions by agent:', error);
+        console.error('Error fetching events by agent:', error);
         return [];
       }
 
-      return (data || []).map(convertDbQuestion);
+      return (data || []).map(convertDbEvent);
     } catch (error) {
-      console.error('Error fetching questions by agent:', error);
+      console.error('Error fetching events by agent:', error);
       return [];
     }
   },
 
-  async getQuestion(id: string): Promise<Question | null> {
+  async getEvent(id: string): Promise<Event | null> {
     try {
       const { data, error} = await supabase
-        .from('questions')
+        .from('events')
         .select('*')
         .eq('id', id)
         .single();
 
       if (error) {
-        console.error('Error fetching question:', error);
+        console.error('Error fetching event:', error);
         return null;
       }
 
-      return data ? convertDbQuestion(data) : null;
+      return data ? convertDbEvent(data) : null;
     } catch (error) {
-      console.error('Error fetching question:', error);
+      console.error('Error fetching event:', error);
       return null;
     }
   },
 
-  async updateQuestion(id: string, updates: Partial<Question>): Promise<Question | null> {
+  async updateEvent(id: string, updates: Partial<Event>): Promise<Event | null> {
     try {
       const now = new Date().toISOString();
 
@@ -398,30 +400,30 @@ export const questionsApi = {
       if (updates.categories !== undefined) dbUpdates.categories = updates.categories;
 
       const { data, error } = await supabase
-        .from('questions')
+        .from('events')
         .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
 
       if (error) {
-        console.error('Error updating question:', error);
+        console.error('Error updating event:', error);
         return null;
       }
 
-      return data ? convertDbQuestion(data) : null;
+      return data ? convertDbEvent(data) : null;
     } catch (error) {
-      console.error('Error updating question:', error);
+      console.error('Error updating event:', error);
       return null;
     }
   },
 
-  async updateQuestionState(id: string, state: string): Promise<Question | null> {
+  async updateEventState(id: string, state: string): Promise<Event | null> {
     try {
       const now = new Date().toISOString();
 
       const { data, error } = await supabase
-        .from('questions')
+        .from('events')
         .update({
           state: state,
           updated_at: now,
@@ -431,39 +433,39 @@ export const questionsApi = {
         .single();
 
       if (error) {
-        console.error('Error updating question state:', error);
+        console.error('Error updating event state:', error);
         return null;
       }
 
-      return data ? convertDbQuestion(data) : null;
+      return data ? convertDbEvent(data) : null;
     } catch (error) {
-      console.error('Error updating question state:', error);
+      console.error('Error updating event state:', error);
       return null;
     }
   },
 
-  async deleteQuestion(id: string): Promise<boolean> {
+  async deleteEvent(id: string): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('questions')
+        .from('events')
         .delete()
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting question:', error);
+        console.error('Error deleting event:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error deleting question:', error);
+      console.error('Error deleting event:', error);
       return false;
     }
   },
 };
 
 export const novaRatingsApi = {
-  async createOrUpdateRating(questionId: string, rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S', ratingCategory?: string, confidence?: number, sparkline?: number[]): Promise<boolean> {
+  async createOrUpdateRating(eventId: string, rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S', ratingCategory?: string, confidence?: number, sparkline?: number[]): Promise<boolean> {
     try {
       const now = new Date().toISOString();
 
@@ -471,7 +473,7 @@ export const novaRatingsApi = {
       const { data: existing } = await supabase
         .from('nova_ratings')
         .select('id')
-        .eq('question_id', questionId)
+        .eq('event_id', eventId)
         .single();
 
       if (existing) {
@@ -485,7 +487,7 @@ export const novaRatingsApi = {
             sparkline,
             updated_at: now,
           })
-          .eq('question_id', questionId);
+          .eq('event_id', eventId);
 
         if (error) {
           console.error('Error updating nova rating:', error);
@@ -496,7 +498,7 @@ export const novaRatingsApi = {
         const { error } = await supabase
           .from('nova_ratings')
           .insert({
-            question_id: questionId,
+            event_id: eventId,
             rating,
             rating_category: ratingCategory,
             confidence,
@@ -518,12 +520,12 @@ export const novaRatingsApi = {
     }
   },
 
-  async batchCreateOrUpdateRatings(ratings: Array<{ questionId: string; rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S'; ratingCategory?: string; confidence?: number; sparkline?: number[] }>): Promise<{ success: number; failed: number }> {
+  async batchCreateOrUpdateRatings(ratings: Array<{ eventId: string; rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S'; ratingCategory?: string; confidence?: number; sparkline?: number[] }>): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
 
     for (const rating of ratings) {
-      const result = await this.createOrUpdateRating(rating.questionId, rating.rating, rating.ratingCategory, rating.confidence, rating.sparkline);
+      const result = await this.createOrUpdateRating(rating.eventId, rating.rating, rating.ratingCategory, rating.confidence, rating.sparkline);
       if (result) {
         success++;
       } else {
@@ -534,12 +536,12 @@ export const novaRatingsApi = {
     return { success, failed };
   },
 
-  async deleteRating(questionId: string): Promise<boolean> {
+  async deleteRating(eventId: string): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('nova_ratings')
         .delete()
-        .eq('question_id', questionId);
+        .eq('event_id', eventId);
 
       if (error) {
         console.error('Error deleting nova rating:', error);

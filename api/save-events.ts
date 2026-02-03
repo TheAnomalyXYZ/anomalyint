@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-interface QuestionInput {
+interface EventInput {
   agentId: string;
   title: string;
   description?: string;
@@ -35,24 +35,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { questions } = req.body as { questions: QuestionInput[] };
+    const { events } = req.body as { events: EventInput[] };
 
-    if (!Array.isArray(questions) || questions.length === 0) {
-      return res.status(400).json({ error: 'Invalid questions array' });
+    if (!Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({ error: 'Invalid events array' });
     }
 
     let success = 0;
     let failed = 0;
     const errors: string[] = [];
-    const createdQuestions: any[] = [];
+    const createdEvents: any[] = [];
 
-    for (const question of questions) {
+    for (const event of events) {
       try {
         // Validate required fields
-        if (!question.agentId || !question.title || !question.resolutionCriteria ||
-            !question.answerEndAt || !question.settlementAt) {
+        if (!event.agentId || !event.title || !event.resolutionCriteria ||
+            !event.answerEndAt || !event.settlementAt) {
           failed++;
-          errors.push(`Missing required fields for question: ${question.title || 'unknown'}`);
+          errors.push(`Missing required fields for event: ${event.title || 'unknown'}`);
           continue;
         }
 
@@ -60,37 +60,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: agent } = await supabase
           .from('agents')
           .select('id, categories')
-          .eq('id', question.agentId)
+          .eq('id', event.agentId)
           .maybeSingle();
 
         if (!agent) {
           failed++;
-          errors.push(`Agent not found: ${question.agentId}`);
+          errors.push(`Agent not found: ${event.agentId}`);
           continue;
         }
 
         const now = new Date().toISOString();
 
-        // Generate a custom question ID (format: gq + timestamp + random)
-        const questionId = `gq${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        // Generate a custom event ID (format: gq + timestamp + random)
+        const eventId = `gq${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
         // Use agent's categories if not provided in the request
         const agentCategories = (agent as any)?.categories || [];
-        const categories = question.categories || agentCategories;
+        const categories = event.categories || agentCategories;
 
-        // Create the question
-        const { data: newQuestion, error } = await supabase
-          .from('questions')
+        // Create the event
+        const { data: newEvent, error } = await supabase
+          .from('events')
           .insert({
-            id: questionId,
-            agent_id: question.agentId,
-            title: question.title,
-            description: question.description || '',
-            resolution_criteria: question.resolutionCriteria,
-            answer_end_at: question.answerEndAt,
-            settlement_at: question.settlementAt,
-            live_date: question.liveDate || null,
-            state: question.state || 'pending',
+            id: eventId,
+            agent_id: event.agentId,
+            title: event.title,
+            description: event.description || '',
+            resolution_criteria: event.resolutionCriteria,
+            answer_end_at: event.answerEndAt,
+            settlement_at: event.settlementAt,
+            live_date: event.liveDate || null,
+            state: event.state || 'pending',
             categories: categories,
             answer_count: 0,
             pool_total: 0,
@@ -104,29 +104,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (error) {
           failed++;
-          errors.push(`Error creating question "${question.title}": ${error.message}`);
+          errors.push(`Error creating event "${event.title}": ${error.message}`);
         } else {
           success++;
-          createdQuestions.push({
-            id: (newQuestion as any)?.id || questionId,
-            title: question.title
+          createdEvents.push({
+            id: (newEvent as any)?.id || eventId,
+            title: event.title
           });
         }
       } catch (error) {
         failed++;
-        errors.push(`Exception processing "${question.title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+        errors.push(`Exception processing "${event.title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
     return res.status(200).json({
       success,
       failed,
-      total: questions.length,
-      questions: createdQuestions,
+      total: events.length,
+      events: createdEvents,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error('Error saving questions:', error);
+    console.error('Error saving events:', error);
     return res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error',

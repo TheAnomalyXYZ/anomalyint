@@ -9,8 +9,8 @@ import {
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Agent, ProposedQuestion, AgentSourceType } from "../../lib/types";
-import { questionsApi } from "../../lib/supabase";
+import { Agent, ProposedEvent, AgentSourceType } from "../../lib/types";
+import { eventsApi } from "../../lib/supabase";
 import { formatDateTime, cn, getCategoryColor } from "../../lib/utils";
 import {
   Globe,
@@ -51,7 +51,7 @@ export function AgentDetailsModal({
   onTogglePause,
   onNavigate,
 }: AgentDetailsModalProps) {
-  const [generatedQuestions, setGeneratedQuestions] = useState<ProposedQuestion[]>([]);
+  const [generatedQuestions, setGeneratedQuestions] = useState<ProposedEvent[]>([]);
   const [isRunning, setIsRunning] = useState(false);
 
   // Load questions from database
@@ -59,7 +59,7 @@ export function AgentDetailsModal({
     if (!agent) return;
 
     try {
-      const questions = await questionsApi.getQuestionsByAgent(agent.id);
+      const questions = await eventsApi.getEventsByAgent(agent.id);
       // Filter for pending questions (AI suggestions)
       const pendingQuestions = questions.filter(q => q.state === 'pending');
       setGeneratedQuestions(pendingQuestions);
@@ -384,7 +384,7 @@ export function AgentDetailsModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Question Prompt</CardTitle>
+                <CardTitle className="text-lg">Event Prompt</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">

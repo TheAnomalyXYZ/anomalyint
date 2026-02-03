@@ -25,7 +25,7 @@
  */
 
 import { AgentRunner } from '../api/agentRunner';
-import { agentsApi } from '../api/questions';
+import { agentsApi } from '../api/events';
 import { Agent } from '../lib/types';
 
 async function main() {
@@ -83,11 +83,11 @@ async function main() {
       console.log('');
       console.log('Successful Executions:');
       results.forEach((result, index) => {
-        if (result.success && result.question) {
-          console.log(`  ${index + 1}. Question: "${result.question.title.substring(0, 60)}..."`);
-          console.log(`     ID: ${result.question.id}`);
-          console.log(`     Categories: ${result.question.categories.join(', ') || 'none'}`);
-          console.log(`     AI Score: ${(result.question.aiScore * 100).toFixed(0)}%`);
+        if (result.success && result.event) {
+          console.log(`  ${index + 1}. Event: "${result.event.title.substring(0, 60)}..."`);
+          console.log(`     ID: ${result.event.id}`);
+          console.log(`     Categories: ${result.event.categories.join(', ') || 'none'}`);
+          console.log(`     AI Score: ${(result.event.aiScore * 100).toFixed(0)}%`);
         }
       });
     }

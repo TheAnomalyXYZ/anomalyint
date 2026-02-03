@@ -36,7 +36,7 @@ import { QuestionDetailsModal } from "../components/shared/QuestionDetailsModal"
 import { EditQuestionDetailsModal } from "../components/shared/EditQuestionDetailsModal";
 import { Search, Plus, MoreHorizontal, XCircle, Pause, Edit } from "lucide-react";
 import { mockQuestions } from "../lib/mock-data";
-import { Question } from "../lib/types";
+import { Event } from "../lib/types";
 import { formatDate } from "../lib/utils";
 import {
   DropdownMenu,
@@ -48,12 +48,12 @@ import { toast } from "sonner";
 
 export function ManageQuestions() {
   const navigate = useNavigate();
-  const [questions, setQuestions] = useState<Question[]>(mockQuestions);
+  const [questions, setQuestions] = useState<Event[]>(mockQuestions);
   const [searchQuery, setSearchQuery] = useState("");
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<Event | null>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
@@ -73,33 +73,33 @@ export function ManageQuestions() {
   });
 
   const handleClone = (id: string) => {
-    toast.success("Question cloned successfully");
+    toast.success("Event cloned successfully");
   };
 
   const handleUnpublish = (id: string) => {
-    toast.success("Question unpublished");
+    toast.success("Event unpublished");
   };
 
   const handleResolve = (id: string) => {
     navigate(`/resolve/${id}`);
   };
 
-  const handleCloseNow = (question: Question) => {
+  const handleCloseNow = (question: Event) => {
     setSelectedQuestion(question);
     setCloseConfirmOpen(true);
   };
 
-  const handlePause = (question: Question) => {
+  const handlePause = (question: Event) => {
     setSelectedQuestion(question);
     setPauseConfirmOpen(true);
   };
 
-  const handleEdit = (question: Question) => {
+  const handleEdit = (question: Event) => {
     setSelectedQuestion(question);
     setEditModalOpen(true);
   };
 
-  const handleItemClick = (question: Question) => {
+  const handleItemClick = (question: Event) => {
     setSelectedQuestion(question);
     setEditModalOpen(true);
   };
@@ -111,7 +111,7 @@ export function ManageQuestions() {
           q.id === selectedQuestion.id ? { ...q, state: 'answering_closed' } : q
         )
       );
-      toast.success("Question closed successfully");
+      toast.success("Event closed successfully");
     }
     setCloseConfirmOpen(false);
     setSelectedQuestion(null);
@@ -124,19 +124,19 @@ export function ManageQuestions() {
           q.id === selectedQuestion.id ? { ...q, state: 'paused' } : q
         )
       );
-      toast.success("Question paused successfully");
+      toast.success("Event paused successfully");
     }
     setPauseConfirmOpen(false);
     setSelectedQuestion(null);
   };
 
-  const handleSaveQuestion = (updatedQuestion: Question) => {
+  const handleSaveQuestion = (updatedQuestion: Event) => {
     setQuestions(
       questions.map((q) =>
         q.id === updatedQuestion.id ? updatedQuestion : q
       )
     );
-    toast.success("Question details updated");
+    toast.success("Event details updated");
   };
 
   return (
@@ -147,7 +147,7 @@ export function ManageQuestions() {
         actions={
           <Button onClick={() => navigate("/markets")}>
             <Plus className="h-4 w-4 mr-2" />
-            New Question
+            New Event
           </Button>
         }
       />
@@ -336,7 +336,7 @@ export function ManageQuestions() {
       <AlertDialog open={closeConfirmOpen} onOpenChange={setCloseConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Close Question Now?</AlertDialogTitle>
+            <AlertDialogTitle>Close Event Now?</AlertDialogTitle>
             <AlertDialogDescription>
               This will immediately close the answering period for "{selectedQuestion?.title}". 
               Users will no longer be able to submit answers. This action cannot be undone.
@@ -355,7 +355,7 @@ export function ManageQuestions() {
       <AlertDialog open={pauseConfirmOpen} onOpenChange={setPauseConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Pause Question?</AlertDialogTitle>
+            <AlertDialogTitle>Pause Event?</AlertDialogTitle>
             <AlertDialogDescription>
               This will pause the question "{selectedQuestion?.title}". 
               The question will be temporarily hidden from users and answering will be suspended.
@@ -365,13 +365,13 @@ export function ManageQuestions() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmPause}>
-              Pause Question
+              Pause Event
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit Question Details Modal */}
+      {/* Edit Event Details Modal */}
       <EditQuestionDetailsModal
         open={editModalOpen}
         onOpenChange={setEditModalOpen}

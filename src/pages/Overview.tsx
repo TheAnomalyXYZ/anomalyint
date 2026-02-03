@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { questionsApi, agentsApi, corporaApi } from "../lib/supabase";
+import { eventsApi, agentsApi, corporaApi } from "../lib/supabase";
 import OpenAI from "openai";
 import {
   Dialog,
@@ -53,14 +53,14 @@ import { QuestionDetailsModal } from "../components/shared/QuestionDetailsModal"
 import { EditQuestionDetailsModal } from "../components/shared/EditQuestionDetailsModal";
 import { RatingGauge } from "../components/shared/RatingGauge";
 import { NovaProcessingModal } from "../components/shared/NovaProcessingModal";
-import { ProposedQuestion, Question, Agent, Corpus } from "../lib/types";
+import { ProposedEvent, Event, Agent, Corpus } from "../lib/types";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
 
 export function Overview() {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<Event[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -89,7 +89,7 @@ export function Overview() {
     setLoading(true);
     try {
       const [questionsData, agentsData, corporaData] = await Promise.all([
-        questionsApi.getQuestions(),
+        eventsApi.getEvents(),
         agentsApi.getAgents(),
         corporaApi.getCorpora()
       ]);
@@ -111,7 +111,7 @@ export function Overview() {
   const loadTodaysContext = async (): Promise<string> => {
     try {
       // Get all questions from database
-      const allQuestions = await questionsApi.getQuestions();
+      const allQuestions = await eventsApi.getEvents();
       const allAgents = await agentsApi.getAgents();
 
       // Filter questions generated today by AI agents
@@ -190,7 +190,7 @@ Your role:
   };
 
   // Helper function to get agent name from a proposal
-  const getAgentName = (proposal: ProposedQuestion): string => {
+  const getAgentName = (proposal: ProposedEvent): string => {
     const agent = agents.find(a => a.id === proposal.agentId);
     return agent?.name || 'Unknown Agent';
   };
@@ -222,7 +222,7 @@ Your role:
   };
 
   // Helper function to calculate average rating from multiple ratings
-  const getAverageRating = (question: Question): { rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S', confidence: number, sparkline: number[], categories: string[] } => {
+  const getAverageRating = (question: Event): { rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S', confidence: number, sparkline: number[], categories: string[] } => {
     if (question.novaRatings && question.novaRatings.length > 0) {
       // Convert ratings to numeric values for averaging
       const ratingToNum: Record<string, number> = { 'F': 1, 'E': 2, 'D': 3, 'C': 4, 'B': 5, 'A': 6, 'S': 7 };
@@ -270,15 +270,15 @@ Your role:
   const [expiryPopoverOpen, setExpiryPopoverOpen] = useState(false);
   const [settlementPopoverOpen, setSettlementPopoverOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] = useState<ProposedQuestion | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<ProposedEvent | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedEditQuestion, setSelectedEditQuestion] = useState<Question | null>(null);
+  const [selectedEditQuestion, setSelectedEditQuestion] = useState<Event | null>(null);
   const [ratingFilter, setRatingFilter] = useState<string>("highest");
   const [novaProcessingOpen, setNovaProcessingOpen] = useState(false);
   const [novaVisibleCount, setNovaVisibleCount] = useState(8);
   const [aiVisibleCount, setAiVisibleCount] = useState(8);
   const [platformDialogOpen, setPlatformDialogOpen] = useState(false);
-  const [questionToQueue, setQuestionToQueue] = useState<Question | null>(null);
+  const [questionToQueue, setQuestionToQueue] = useState<Event | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [novaCollapsed, setNovaCollapsed] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
@@ -399,9 +399,9 @@ Your role:
     setQuestionInput(rephrased);
   };
 
-  const handleViewDetails = (suggestion: ProposedQuestion) => {
-    // Convert ProposedQuestion to Question for editing
-    const questionForEdit: Question = {
+  const handleViewDetails = (suggestion: ProposedEvent) => {
+    // Convert ProposedEvent to Event for editing
+    const questionForEdit: Event = {
       id: suggestion.id,
       title: suggestion.title,
       description: suggestion.description,
@@ -422,13 +422,13 @@ Your role:
     setEditModalOpen(true);
   };
 
-  const handleSaveQuestion = (updatedQuestion: Question) => {
+  const handleSaveQuestion = (updatedQuestion: Event) => {
     // In a real app, this would update the backend
     // For now, we'll just show a success message
     console.log('Draft saved:', updatedQuestion);
   };
 
-  const handleQueueLive = (updatedQuestion: Question) => {
+  const handleQueueLive = (updatedQuestion: Event) => {
     // Close the edit modal first
     setEditModalOpen(false);
     // Store the question and open platform selection dialog
@@ -444,13 +444,13 @@ Your role:
     }
 
     // Update the question state to approved and add selected platforms
-    const updatedQuestion = await questionsApi.updateQuestion(questionToQueue.id, {
+    const updatedQuestion = await eventsApi.updateEvent(questionToQueue.id, {
       state: 'approved',
       pushedTo: selectedPlatforms
     });
 
     if (updatedQuestion) {
-      toast.success(`Question approved and queued for ${selectedPlatforms.join(', ')}`);
+      toast.success(`Event approved and queued for ${selectedPlatforms.join(', ')}`);
       // Update local state
       setQuestions(questions.map(q =>
         q.id === questionToQueue.id ? updatedQuestion : q
@@ -478,13 +478,13 @@ Your role:
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
-  const handlePush = async (updatedQuestion: Question) => {
+  const handlePush = async (updatedQuestion: Event) => {
     // Close the edit modal first
     setEditModalOpen(false);
 
     // Check if the question has pushedTo platforms
     if (!updatedQuestion.pushedTo || updatedQuestion.pushedTo.length === 0) {
-      toast.error("Question must be queued with platforms before pushing");
+      toast.error("Event must be queued with platforms before pushing");
       return;
     }
 
@@ -492,8 +492,8 @@ Your role:
       // Push to each selected platform
       const pushPromises = updatedQuestion.pushedTo.map(async (platform) => {
         const apiPath = platform === 'synapse'
-          ? '/api/synapse/api/predictive/wager-questions'
-          : `/api/${platform}/api/predictive/wager-questions`;
+          ? '/api/synapse/api/predictive/wager-events'
+          : `/api/${platform}/api/predictive/wager-events`;
 
         const response = await fetch(apiPath, {
           method: 'POST',
@@ -522,12 +522,12 @@ Your role:
       const pushedPlatforms = await Promise.all(pushPromises);
 
       // Update the question state to published in database
-      const dbUpdatedQuestion = await questionsApi.updateQuestion(updatedQuestion.id, {
+      const dbUpdatedQuestion = await eventsApi.updateEvent(updatedQuestion.id, {
         state: 'published',
       });
 
       if (dbUpdatedQuestion) {
-        toast.success(`Question pushed to ${pushedPlatforms.join(', ')} and is now live!`);
+        toast.success(`Event pushed to ${pushedPlatforms.join(', ')} and is now live!`);
         // Update local state
         setQuestions(questions.map(q =>
           q.id === updatedQuestion.id ? dbUpdatedQuestion : q
@@ -547,7 +547,7 @@ Your role:
     .filter(q => q.state === 'pending' && (q.rating !== undefined || (q.novaRatings && q.novaRatings.length > 0)))
     .sort((a, b) => {
       // Get the highest rating from either single rating or novaRatings array
-      const getHighestRating = (q: Question) => {
+      const getHighestRating = (q: Event) => {
         if (q.novaRatings && q.novaRatings.length > 0) {
           return Math.max(...q.novaRatings.map(r => ratingOrder[r.rating] || 1));
         }
@@ -1056,7 +1056,7 @@ Your role:
         </CardContent>
       </Card>
 
-      {/* Modal for Manual Question Creation */}
+      {/* Modal for Manual Event Creation */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px] max-w-[90vw]">
           <DialogHeader>
@@ -1165,18 +1165,18 @@ Your role:
         </DialogContent>
       </Dialog>
 
-      {/* Question Details Modal */}
+      {/* Event Details Modal */}
       <QuestionDetailsModal
         question={selectedQuestion}
         open={detailsModalOpen}
         onOpenChange={setDetailsModalOpen}
-        onSave={(updatedQuestion: ProposedQuestion) => {
+        onSave={(updatedQuestion: ProposedEvent) => {
           // Legacy handler if needed
         }}
         showActions={false}
       />
 
-      {/* Edit Question Details Modal */}
+      {/* Edit Event Details Modal */}
       <EditQuestionDetailsModal
         open={editModalOpen}
         onOpenChange={setEditModalOpen}

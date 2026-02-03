@@ -35,7 +35,7 @@ model Source {
   isPinned    Boolean     @default(false) @map("is_pinned")
   createdAt   DateTime    @default(now()) @map("created_at")
 
-  questionSources QuestionSource[]
+  eventSources EventSource[]
 
   @@map("sources")
 }
@@ -45,7 +45,7 @@ model Category {
   name      String   @unique @db.VarChar(100)
   createdAt DateTime @default(now()) @map("created_at")
 
-  questionCategories QuestionCategory[]
+  eventCategories EventCategory[]
 
   @@map("categories")
 }
@@ -55,7 +55,7 @@ model Tag {
   name      String   @unique @db.VarChar(100)
   createdAt DateTime @default(now()) @map("created_at")
 
-  questionTags QuestionTag[]
+  eventTags EventTag[]
 
   @@map("tags")
 }
@@ -67,16 +67,16 @@ model RiskFlag {
   severity    RiskSeverity     @default(medium)
   createdAt   DateTime         @default(now()) @map("created_at")
 
-  questionRiskFlags QuestionRiskFlag[]
+  eventRiskFlags EventRiskFlag[]
 
   @@map("risk_flags")
 }
 
-model Question {
+model Event {
   id                 String         @id @default(cuid())
   title              String         @db.VarChar(1000)
   description        String?        @db.Text
-  state              QuestionState  @default(draft)
+  state              EventState     @default(draft)
   liveDate           DateTime?      @map("live_date")
   answerEndAt        DateTime       @map("answer_end_at")
   settlementAt       DateTime       @map("settlement_at")
@@ -96,21 +96,21 @@ model Question {
   updatedAt          DateTime       @updatedAt @map("updated_at")
 
   agent              Agent                    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  questionCategories QuestionCategory[]
-  questionTags       QuestionTag[]
-  questionRiskFlags  QuestionRiskFlag[]
-  questionSources    QuestionSource[]
+  eventCategories    EventCategory[]
+  eventTags          EventTag[]
+  eventRiskFlags     EventRiskFlag[]
+  eventSources       EventSource[]
   outcomeEvidence    OutcomeEvidence[]
   answers            Answer[]
   aiResolutionProposal AIResolutionProposal?
   novaRatings        NovaRating[]
 
-  @@map("questions")
+  @@map("events")
 }
 
 model NovaRating {
   id             Int      @id @default(autoincrement())
-  questionId     String   @map("question_id")
+  eventId        String   @map("event_id")
   rating         String   @db.VarChar(1)
   ratingCategory String   @map("rating_category") @db.VarChar(100)
   confidence     Int?
@@ -118,19 +118,19 @@ model NovaRating {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  @@unique([questionId, ratingCategory])
+  @@unique([eventId, ratingCategory])
   @@map("nova_ratings")
-  @@index([questionId])
+  @@index([eventId])
   @@index([rating])
 }
 
-// ProposedQuestion model removed - consolidated into Question model with 'pending', 'approved', 'rejected' states
+// ProposedEvent model removed - consolidated into Event model with 'pending', 'approved', 'rejected' states
 
 model AIResolutionProposal {
   id              String                   @id @default(cuid())
-  questionId      String                   @unique @map("question_id")
+  eventId         String                   @unique @map("event_id")
   resolution      Outcome
   confidenceScore Decimal                  @map("confidence_score") @db.Decimal(5, 4)
   reasoning       String                   @db.Text
@@ -142,8 +142,8 @@ model AIResolutionProposal {
   createdAt       DateTime                 @default(now()) @map("created_at")
   updatedAt       DateTime                 @updatedAt @map("updated_at")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  reviewer User?    @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
+  event    Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reviewer User? @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@map("ai_resolution_proposals")
 }
@@ -153,12 +153,12 @@ model Agent {
   name             String
   description      String?         @db.Text
   categories       String[]        @default([])
-  questionPrompt   String          @map("question_prompt") @db.Text
+  eventPrompt      String          @map("event_prompt") @db.Text
   resolutionPrompt String?         @map("resolution_prompt") @db.Text
   baseModel        String          @default("chatgpt-4o-latest") @map("base_model") @db.VarChar(100)
   frequency        AgentFrequency  @default(daily)
   status           AgentStatus     @default(active)
-  questionsCreated Int             @default(0) @map("questions_created")
+  eventsCreated    Int             @default(0) @map("events_created")
   lastRun          DateTime?       @map("last_run")
   nextRun          DateTime?       @map("next_run")
   isTemplate       Boolean         @default(false) @map("is_template")
@@ -166,7 +166,7 @@ model Agent {
   updatedAt        DateTime        @updatedAt @map("updated_at")
 
   agentSources AgentSource[]
-  questions    Question[]
+  events       Event[]
 
   @@map("agents")
 }
@@ -187,30 +187,30 @@ model AgentSource {
 }
 
 model Answer {
-  id            String   @id @default(cuid())
-  questionId    String   @map("question_id")
-  questionTitle String   @map("question_title") @db.VarChar(1000)
-  userId        String   @map("user_id")
-  userName      String   @map("user_name")
-  choice        Choice
-  confidence    Decimal  @default(0.50) @db.Decimal(3, 2)
-  channel       String   @default("web") @db.VarChar(50)
-  placedAt      DateTime @default(now()) @map("placed_at")
+  id         String   @id @default(cuid())
+  eventId    String   @map("event_id")
+  eventTitle String   @map("event_title") @db.VarChar(1000)
+  userId     String   @map("user_id")
+  userName   String   @map("user_name")
+  choice     Choice
+  confidence Decimal  @default(0.50) @db.Decimal(3, 2)
+  channel    String   @default("web") @db.VarChar(50)
+  placedAt   DateTime @default(now()) @map("placed_at")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("answers")
 }
 
 model OutcomeEvidence {
   id           Int          @id @default(autoincrement())
-  questionId   String       @map("question_id")
+  eventId      String       @map("event_id")
   evidence     String       @db.Text
   evidenceType EvidenceType @default(text) @map("evidence_type")
   createdAt    DateTime     @default(now()) @map("created_at")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@map("outcome_evidence")
 }
@@ -256,51 +256,51 @@ model KpiStat {
 }
 
 // Junction tables
-model QuestionCategory {
-  questionId String @map("question_id")
+model EventCategory {
+  eventId    String @map("event_id")
   categoryId Int    @map("category_id")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@id([questionId, categoryId])
-  @@map("question_categories")
+  @@id([eventId, categoryId])
+  @@map("event_categories")
 }
 
-model QuestionTag {
-  questionId String @map("question_id")
-  tagId      Int    @map("tag_id")
+model EventTag {
+  eventId String @map("event_id")
+  tagId   Int    @map("tag_id")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@id([questionId, tagId])
-  @@map("question_tags")
+  @@id([eventId, tagId])
+  @@map("event_tags")
 }
 
-model QuestionSource {
-  id         Int      @id @default(autoincrement())
-  questionId String   @map("question_id")
-  sourceId   String   @map("source_id")
-  createdAt  DateTime @default(now()) @map("created_at")
+model EventSource {
+  id        Int      @id @default(autoincrement())
+  eventId   String   @map("event_id")
+  sourceId  String   @map("source_id")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  source   Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
-  @@map("question_sources")
+  @@map("event_sources")
 }
 
-// ProposedQuestionCategory, ProposedQuestionSource, and ProposedQuestionRiskFlag models removed - use Question relations instead
+// ProposedEventCategory, ProposedEventSource, and ProposedEventRiskFlag models removed - use Event relations instead
 
-model QuestionRiskFlag {
-  questionId String @map("question_id")
+model EventRiskFlag {
+  eventId    String @map("event_id")
   riskFlagId Int    @map("risk_flag_id")
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   riskFlag RiskFlag @relation(fields: [riskFlagId], references: [id], onDelete: Cascade)
 
-  @@id([questionId, riskFlagId])
-  @@map("question_risk_flags")
+  @@id([eventId, riskFlagId])
+  @@map("event_risk_flags")
 }
 
 model BrandProfile {
@@ -490,7 +490,7 @@ enum TrustLevel {
   low
 }
 
-enum QuestionState {
+enum EventState {
   pending
   approved
   rejected
@@ -516,7 +516,7 @@ enum Outcome {
   INVALID
 }
 
-enum QuestionType {
+enum EventType {
   binary
   multi_option @map("multi-option")
 }

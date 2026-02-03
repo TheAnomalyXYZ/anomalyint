@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 interface RatingInput {
   questionId: string;
   rating: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'S';
-  ratingCategory: string; // Required for multiple ratings per question
+  ratingCategory: string; // Required for multiple ratings per event
   confidence?: number;
   sparkline?: number[];
 }
@@ -46,17 +46,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Validate required fields
         if (!rating.questionId || !rating.rating || !rating.ratingCategory) {
           failed++;
-          errors.push(`Missing required fields for question ${rating.questionId}`);
+          errors.push(`Missing required fields for event ${rating.questionId}`);
           continue;
         }
 
         const now = new Date().toISOString();
 
-        // Check if rating exists for this question AND category
+        // Check if rating exists for this event AND category
         const { data: existing } = await supabase
           .from('nova_ratings')
           .select('id')
-          .eq('question_id', rating.questionId)
+          .eq('event_id', rating.questionId)
           .eq('rating_category', rating.ratingCategory)
           .maybeSingle(); // Use maybeSingle instead of single to avoid error when not found
 
@@ -70,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               sparkline: rating.sparkline || [],
               updated_at: now,
             })
-            .eq('question_id', rating.questionId)
+            .eq('event_id', rating.questionId)
             .eq('rating_category', rating.ratingCategory);
 
           if (error) {
@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const { error } = await supabase
             .from('nova_ratings')
             .insert({
-              question_id: rating.questionId,
+              event_id: rating.questionId,
               rating: rating.rating,
               rating_category: rating.ratingCategory,
               confidence: rating.confidence,

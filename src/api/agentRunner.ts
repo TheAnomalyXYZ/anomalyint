@@ -3,28 +3,28 @@ import { Agent } from '../lib/types';
 /**
  * Agent Runner Service
  *
- * This service handles executing AI agents to trigger question generation.
+ * This service handles executing AI agents to trigger event generation.
  * It can be used by:
  * - Frontend UI (Run Now button)
  * - Backend cron jobs
  * - Scheduled agent execution
  *
- * Note: The API endpoint returns 200 on success, and questions are saved
+ * Note: The API endpoint returns 200 on success, and events are saved
  * to the database by an external workflow (n8n). This service does not
- * parse or save questions directly.
+ * parse or save events directly.
  */
 
 interface AgentRunResult {
   success: boolean;
-  questions: never[]; // Always empty - questions are saved by external workflow
+  events: never[]; // Always empty - events are saved by external workflow
   error?: string;
 }
 
 export class AgentRunner {
   /**
-   * Execute an agent to generate new questions (1 to many)
+   * Execute an agent to generate new events (1 to many)
    * @param agent The agent to run
-   * @returns Result of the agent execution with array of questions
+   * @returns Result of the agent execution with array of events
    */
   static async runAgent(agent: Agent): Promise<AgentRunResult> {
     try {
@@ -54,14 +54,14 @@ export class AgentRunner {
       } else {
         return {
           success: false,
-          questions: [],
+          events: [],
           error: 'No API endpoint or Reddit subreddit configured for this agent'
         };
       }
 
       // Prepare request body
       const requestBody: any = {
-        Question: agent.questionPrompt,
+        Event: agent.eventPrompt,
         AgentId: agent.id,
         AgentName: agent.name
       };
@@ -102,7 +102,7 @@ export class AgentRunner {
         console.error(`[AgentRunner] Fetch error:`, fetchError);
         return {
           success: false,
-          questions: [],
+          events: [],
           error: `Failed to fetch: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
         };
       }
@@ -114,24 +114,24 @@ export class AgentRunner {
         console.error(`[AgentRunner] API error response:`, errorText);
         return {
           success: false,
-          questions: [],
+          events: [],
           error: `API request failed with status ${response.status}: ${response.statusText}`
         };
       }
 
-      // API returned 200 success - questions will be saved to database by external workflow
-      console.log(`[AgentRunner] Agent executed successfully. Questions will be saved by external workflow.`);
+      // API returned 200 success - events will be saved to database by external workflow
+      console.log(`[AgentRunner] Agent executed successfully. Events will be saved by external workflow.`);
 
       return {
         success: true,
-        questions: [] // Questions are saved by external workflow, not returned here
+        events: [] // Questions are saved by external workflow, not returned here
       };
 
     } catch (error) {
       console.error(`[AgentRunner] Error running agent "${agent.name}":`, error);
       return {
         success: false,
-        questions: [],
+        events: [],
         error: error instanceof Error ? error.message : 'Unknown error occurred'
       };
     }

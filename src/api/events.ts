@@ -1,15 +1,15 @@
 import { query, transaction } from '../lib/database';
-import { Question, ProposedQuestion, Agent } from '../lib/types';
+import { Event, ProposedEvent, Agent } from '../lib/types';
 
 // Questions API
-export const questionsApi = {
+export const eventsApi = {
   // Get all questions with filters
-  async getQuestions(filters: {
+  async getEvents(filters: {
     state?: string;
     category?: string;
     limit?: number;
     offset?: number;
-  } = {}): Promise<Question[]> {
+  } = {}): Promise<Event[]> {
     let sql = `
       SELECT q.*,
         GROUP_CONCAT(DISTINCT c.name) as categories,
@@ -65,7 +65,7 @@ export const questionsApi = {
   },
 
   // Create new question
-  async createQuestion(question: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  async createEvent(question: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     return transaction(async (connection) => {
       const questionId = crypto.randomUUID();
 
@@ -116,7 +116,7 @@ export const questionsApi = {
   },
 
   // Update question
-  async updateQuestion(id: string, updates: Partial<Question>): Promise<void> {
+  async updateEvent(id: string, updates: Partial<Event>): Promise<void> {
     const setClause = [];
     const params = [];
 
@@ -160,7 +160,7 @@ export const questionsApi = {
   },
 
   // Delete question
-  async deleteQuestion(id: string): Promise<void> {
+  async deleteEvent(id: string): Promise<void> {
     await query('DELETE FROM questions WHERE id = ?', [id]);
   }
 };
@@ -168,7 +168,7 @@ export const questionsApi = {
 // Proposed Questions API
 export const proposedQuestionsApi = {
   // Get proposed questions
-  async getProposedQuestions(limit = 50): Promise<ProposedQuestion[]> {
+  async getProposedQuestions(limit = 50): Promise<ProposedEvent[]> {
     const rows = await query(`
       SELECT pq.*,
         GROUP_CONCAT(DISTINCT c.name) as categories,
@@ -197,7 +197,7 @@ export const proposedQuestionsApi = {
   },
 
   // Create proposed question
-  async createProposedQuestion(question: Omit<ProposedQuestion, 'id' | 'createdAt'>): Promise<string> {
+  async createProposedQuestion(question: Omit<ProposedEvent, 'id' | 'createdAt'>): Promise<string> {
     const questionId = crypto.randomUUID();
 
     await query(`
