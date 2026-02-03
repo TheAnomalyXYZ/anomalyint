@@ -4,6 +4,7 @@
       "private": true,
       "type": "module",
       "dependencies": {
+            "@aws-sdk/client-s3": "^3.981.0",
             "@jsr/supabase__supabase-js": "^2.49.8",
             "@prisma/client": "^6.18.0",
             "@radix-ui/react-accordion": "^1.2.3",
@@ -38,6 +39,7 @@
             "cmdk": "^1.1.1",
             "dotenv": "^17.2.3",
             "embla-carousel-react": "^8.6.0",
+            "formidable": "^3.5.4",
             "googleapis": "^140.0.0",
             "hono": "*",
             "input-otp": "^1.4.2",

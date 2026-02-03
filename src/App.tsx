@@ -15,6 +15,7 @@ import { NewsSettings } from "./pages/NewsSettings";
 import { TelegramSettings } from "./pages/TelegramSettings";
 import { DiscordSettings } from "./pages/DiscordSettings";
 import { RedditSettings } from "./pages/RedditSettings";
+import { Clerk } from "./pages/Clerk";
 import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/tracked-content" element={<TrackedContent />} />
               <Route path="/agents" element={<Agents />} />
               <Route path="/knowledge-corpus" element={<KnowledgeCorpus />} />
+              <Route path="/clerk" element={<Clerk />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/sources/twitter" element={<TwitterSettings />} />
