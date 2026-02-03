@@ -114,14 +114,15 @@ export function Overview() {
       const allQuestions = await eventsApi.getEvents();
       const allAgents = await agentsApi.getAgents();
 
-      // Filter questions generated today by AI agents
+      // Filter events generated today by AI agents
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayDateString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
 
       const todaysQuestions = allQuestions.filter(q => {
+        if (!q.agentId) return false;
         const createdDate = new Date(q.createdAt);
-        createdDate.setHours(0, 0, 0, 0);
-        return q.agentId && createdDate.getTime() === today.getTime();
+        const createdDateString = createdDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        return createdDateString === todayDateString;
       });
 
       // Format context: event title + agent description
