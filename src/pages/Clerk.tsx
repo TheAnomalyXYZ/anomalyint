@@ -11,7 +11,9 @@ interface UploadedFile {
   size: number;
   uploadedAt: Date;
   url: string;
-  status: 'uploading' | 'completed' | 'error';
+  status: 'uploading' | 'completed' | 'error' | 'detecting' | 'filling';
+  fieldsDetected?: boolean;
+  filledUrl?: string;
 }
 
 export function Clerk() {
@@ -100,6 +102,55 @@ export function Clerk() {
         );
         toast.error(`Failed to upload ${file.name}`);
       }
+    }
+  };
+
+  const handleDetectFields = async (fileId: string, pdfUrl: string) => {
+    try {
+      // Update status to detecting
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'detecting' as const } : f
+        )
+      );
+
+      // Call the detect-fields endpoint
+      const response = await fetch('/api/clerk/detect-fields', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pdfUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to detect form fields');
+      }
+
+      const data = await response.json();
+
+      // Update file status
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId
+            ? {
+                ...f,
+                status: 'completed' as const,
+                fieldsDetected: true,
+              }
+            : f
+        )
+      );
+
+      toast.success('Form fields detected! PDF is ready for filling.');
+    } catch (error) {
+      console.error('Field detection error:', error);
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'error' as const } : f
+        )
+      );
+      toast.error('Failed to detect form fields');
     }
   };
 
@@ -212,12 +263,29 @@ export function Clerk() {
                       </div>
                     )}
 
-                    {file.status === 'completed' && (
+                    {file.status === 'detecting' && (
+                      <div className="flex items-center gap-2 text-blue-500">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span className="text-sm">Detecting fields...</span>
+                      </div>
+                    )}
+
+                    {file.status === 'completed' && !file.fieldsDetected && (
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleDetectFields(file.id, file.url)}
+                      >
+                        Detect Form Fields
+                      </Button>
+                    )}
+
+                    {file.status === 'completed' && file.fieldsDetected && (
+                      <Button
+                        variant="default"
+                        size="sm"
                         onClick={() => {
-                          toast.info('AI form filling coming soon!');
+                          toast.info('AI form filling coming in next iteration!');
                         }}
                       >
                         Fill with AI
