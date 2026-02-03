@@ -7,11 +7,6 @@
       "memory": 1024,
       "maxDuration": 60,
       "includeFiles": "api/lib/**"
-    },
-    "api/**/*.py": {
-      "runtime": "python3.9",
-      "memory": 3008,
-      "maxDuration": 60
     }
   },
   "rewrites": [
