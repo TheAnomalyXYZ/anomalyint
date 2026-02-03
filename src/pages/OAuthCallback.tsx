@@ -35,58 +35,18 @@ export function OAuthCallback() {
           return;
         }
 
-        // Parse state - it could be either a simple drive_source_id string
-        // or a JSON object with corpus_id and action
-        let driveSourceId: string;
-        let stateData: any;
+        // All OAuth callbacks should be handled by the API endpoint
+        // which properly handles both create and refresh flows
+        setMessage('Processing OAuth authorization...');
 
-        try {
-          stateData = JSON.parse(stateParam);
-          // New format with action
-          if (stateData.action === 'refresh' && stateData.corpus_id) {
-            // For refresh action, redirect to the API callback endpoint
-            // which handles the refresh flow properly
-            const params = new URLSearchParams({
-              code,
-              state: stateParam,
-            });
-            window.location.href = `/api/oauth/google/callback?${params.toString()}`;
-            return;
-          }
-          // Old format but as JSON
-          driveSourceId = stateData.drive_source_id || stateData;
-        } catch {
-          // Old format - plain string
-          driveSourceId = stateParam;
-        }
-
-        // Exchange code for tokens (old flow)
-        setMessage('Exchanging authorization code for tokens...');
-
-        const response = await fetch('/api/oauth/exchange', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            code,
-            drive_source_id: driveSourceId,
-            redirect_uri: `${window.location.origin}/oauth/callback`,
-          }),
+        // Forward to the API callback endpoint which handles everything
+        const params = new URLSearchParams({
+          code,
+          state: stateParam,
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to exchange authorization code');
-        }
-
-        const data = await response.json();
-
-        setStatus('success');
-        setMessage('OAuth tokens refreshed successfully! Redirecting...');
-
-        // Redirect back to Knowledge Corpus page after 2 seconds
-        setTimeout(() => {
-          navigate('/knowledge-corpus');
-        }, 2000);
+        // Redirect to API endpoint - it will redirect back to /knowledge-corpus with results
+        window.location.href = `/api/oauth/google/callback?${params.toString()}`;
       } catch (error) {
         console.error('OAuth callback error:', error);
         setStatus('error');
