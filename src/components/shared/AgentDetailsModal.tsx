@@ -122,15 +122,15 @@ export function AgentDetailsModal({
         throw new Error(result.error || 'Failed to generate questions');
       }
 
-      // Agent returned 200 success, questions will appear in database after a delay
+      // Agent returned 200 success, events will appear in database after a delay
       setIsRunning(false);
       onRunAgent?.(agent.id);
 
       // Dismiss loading toast and show success
       toast.dismiss(toastId);
-      toast.success(`Agent executed successfully! Questions are being generated...`);
+      toast.success(`Agent executed successfully! Events are being generated...`);
 
-      // Wait 5 seconds for questions to appear in database, then reload
+      // Wait 5 seconds for events to appear in database, then reload
       setTimeout(async () => {
         await loadQuestions();
         toast.info(`Questions refreshed from database`);

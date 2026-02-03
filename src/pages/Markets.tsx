@@ -199,7 +199,7 @@ export function Markets() {
     setTimeout(() => {
       setIsGenerating(false);
       setGenerateOpen(false);
-      toast.success("Generated 3 new question proposals");
+      toast.success("Generated 3 new event proposals");
     }, 2000);
   };
 
@@ -462,7 +462,7 @@ export function Markets() {
     <div>
       <PageHeader
         title="Markets"
-        description="Manage AI-generated suggestions and queued questions"
+        description="Manage AI-generated suggestions and queued events"
         actions={
           <>
             {activeTab === "suggestions" && pendingCount > 0 && (
