@@ -31,11 +31,31 @@ interface UploadedFile {
   totalPages?: number;
 }
 
+interface LineDetectionParams {
+  cannyLow: number;
+  cannyHigh: number;
+  houghThreshold: number;
+  minLineLength: number;
+  maxLineGap: number;
+  minWidth: number;
+}
+
 export function Clerk() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedFileId, setExpandedFileId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Line detection parameters with default strict settings
+  const [detectionParams, setDetectionParams] = useState<LineDetectionParams>({
+    cannyLow: 150,
+    cannyHigh: 250,
+    houghThreshold: 200,
+    minLineLength: 100,
+    maxLineGap: 5,
+    minWidth: 100,
+  });
 
   // Fetch previously uploaded files on component mount
   useEffect(() => {
@@ -265,7 +285,7 @@ export function Clerk() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ pdfUrl }),
+        body: JSON.stringify({ pdfUrl, ...detectionParams }),
       });
 
       if (!response.ok) {
@@ -560,6 +580,145 @@ export function Clerk() {
         title="Clerk"
         description="Upload and manage PDF documents for AI-powered form filling"
       />
+
+      {/* Line Detection Settings */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Line Detection Settings</CardTitle>
+              <CardDescription>
+                Adjust parameters to fine-tune line detection without rebuilding
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              {showSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        {showSettings && (
+          <CardContent>
+            <div className="grid grid-cols-2 gap-6">
+              {/* Canny Low */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Canny Low Threshold: {detectionParams.cannyLow}
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="200"
+                  value={detectionParams.cannyLow}
+                  onChange={(e) => setDetectionParams({ ...detectionParams, cannyLow: parseInt(e.target.value) })}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">Lower = detects fainter edges</p>
+              </div>
+
+              {/* Canny High */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Canny High Threshold: {detectionParams.cannyHigh}
+                </label>
+                <input
+                  type="range"
+                  min="100"
+                  max="300"
+                  value={detectionParams.cannyHigh}
+                  onChange={(e) => setDetectionParams({ ...detectionParams, cannyHigh: parseInt(e.target.value) })}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">Lower = more edges detected</p>
+              </div>
+
+              {/* Hough Threshold */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Hough Threshold: {detectionParams.houghThreshold}
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="300"
+                  value={detectionParams.houghThreshold}
+                  onChange={(e) => setDetectionParams({ ...detectionParams, houghThreshold: parseInt(e.target.value) })}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">Lower = more lines detected</p>
+              </div>
+
+              {/* Min Line Length */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Min Line Length: {detectionParams.minLineLength}px
+                </label>
+                <input
+                  type="range"
+                  min="20"
+                  max="200"
+                  value={detectionParams.minLineLength}
+                  onChange={(e) => setDetectionParams({ ...detectionParams, minLineLength: parseInt(e.target.value) })}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">Minimum pixels to form a line</p>
+              </div>
+
+              {/* Max Line Gap */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Max Line Gap: {detectionParams.maxLineGap}px
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  value={detectionParams.maxLineGap}
+                  onChange={(e) => setDetectionParams({ ...detectionParams, maxLineGap: parseInt(e.target.value) })}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">Max gap to connect broken lines</p>
+              </div>
+
+              {/* Min Width */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Min Width: {detectionParams.minWidth}px
+                </label>
+                <input
+                  type="range"
+                  min="20"
+                  max="200"
+                  value={detectionParams.minWidth}
+                  onChange={(e) => setDetectionParams({ ...detectionParams, minWidth: parseInt(e.target.value) })}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">Filters out shorter lines/words</p>
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setDetectionParams({
+                  cannyLow: 150,
+                  cannyHigh: 250,
+                  houghThreshold: 200,
+                  minLineLength: 100,
+                  maxLineGap: 5,
+                  minWidth: 100,
+                })}
+              >
+                Reset to Defaults
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Upload Area */}
       <Card>
