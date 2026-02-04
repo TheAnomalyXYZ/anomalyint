@@ -69,13 +69,10 @@ async def detect_fields(request: DetectFieldsRequest):
 
         try:
             # Use CommonForms to detect and add form fields
+            # Using default parameters as per CommonForms 0.2.1 API
             prepare_form(
                 temp_input_path,
-                temp_output_path,
-                model='FFDNet-S',  # Use smaller model for faster processing
-                confidence=0.3,
-                device='cpu',
-                fast=True  # CPU optimization
+                temp_output_path
             )
 
             # Read the output PDF
@@ -132,12 +129,7 @@ async def fill_form(request: FillFormRequest):
             # Use CommonForms to detect and add form fields
             prepare_form(
                 temp_input_path,
-                temp_output_path,
-                model='FFDNet-S',
-                confidence=0.3,
-                device='cpu',
-                fast=True,
-                multiline=True
+                temp_output_path
             )
 
             # Read the output PDF
