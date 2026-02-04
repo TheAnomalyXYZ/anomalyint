@@ -292,9 +292,10 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
             # Open PDF with PyMuPDF
             pdf_document = fitz.open(temp_input_path)
             all_fillable_areas = []
+            total_pages = len(pdf_document)
 
             # Process each page
-            for page_num in range(len(pdf_document)):
+            for page_num in range(total_pages):
                 page = pdf_document[page_num]
 
                 # Convert page to image
@@ -334,7 +335,7 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
             return {
                 "success": True,
                 "message": "Fillable areas detected successfully",
-                "totalPages": len(pdf_document),
+                "totalPages": total_pages,
                 "fieldsDetected": len(all_fillable_areas),
                 "fields": all_fillable_areas[:50]  # Limit to first 50 for response size
             }
