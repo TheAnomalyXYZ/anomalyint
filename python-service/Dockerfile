@@ -22,5 +22,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Python will handle PORT env var conversion in main.py
+# Direct uvicorn command with hardcoded port (Railway uses 8080)
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
