@@ -46,7 +46,7 @@ export default function App() {
           </AppShell>
         } />
       </Routes>
-      <Toaster />
+      <Toaster position="bottom-right" closeButton duration={5000} />
     </BrowserRouter>
   );
 }
