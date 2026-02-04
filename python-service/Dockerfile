@@ -22,8 +22,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Make start script executable
-RUN chmod +x start.sh
+# Make start script executable and fix line endings
+RUN chmod +x start.sh && \
+    sed -i 's/\r$//' start.sh
 
 # Use start script to handle PORT env var
-CMD ["./start.sh"]
+CMD ["bash", "./start.sh"]
