@@ -184,9 +184,9 @@ def detect_horizontal_lines(image: np.ndarray) -> List[Dict[str, Any]]:
             if abs(y2 - y1) < 10 and abs(x2 - x1) > 50:
                 horizontal_lines.append({
                     "type": "line",
-                    "x": min(x1, x2),
-                    "y": min(y1, y2),
-                    "width": abs(x2 - x1),
+                    "x": int(min(x1, x2)),
+                    "y": int(min(y1, y2)),
+                    "width": int(abs(x2 - x1)),
                     "height": 20
                 })
 
@@ -209,10 +209,10 @@ def detect_table_cells(image: np.ndarray) -> List[Dict[str, Any]]:
         if w > 50 and h > 15 and w < image.shape[1] * 0.9:
             cells.append({
                 "type": "cell",
-                "x": x,
-                "y": y,
-                "width": w,
-                "height": h
+                "x": int(x),
+                "y": int(y),
+                "width": int(w),
+                "height": int(h)
             })
 
     return cells
@@ -234,11 +234,11 @@ def extract_text_with_positions(image: np.ndarray) -> List[Dict[str, Any]]:
             if text:  # Only include non-empty text
                 text_elements.append({
                     "text": text,
-                    "x": ocr_data['left'][i],
-                    "y": ocr_data['top'][i],
-                    "width": ocr_data['width'][i],
-                    "height": ocr_data['height'][i],
-                    "confidence": ocr_data['conf'][i]
+                    "x": int(ocr_data['left'][i]),
+                    "y": int(ocr_data['top'][i]),
+                    "width": int(ocr_data['width'][i]),
+                    "height": int(ocr_data['height'][i]),
+                    "confidence": float(ocr_data['conf'][i])
                 })
 
         return text_elements
