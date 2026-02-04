@@ -445,16 +445,12 @@ async def annotate_pdf(request: AnnotatePdfRequest):
 
                 for field in page_fields:
                     # Scale coordinates back from detection resolution to PDF points
-                    # Image coordinates: Y=0 at top, Y increases downward
-                    # PDF coordinates: Y=0 at bottom, Y increases upward
-                    # Need to flip Y axis
+                    # After page.clean_contents(), coordinate system is standardized
+                    # Use image coordinates directly without Y-axis flip
                     x = field['x'] / scale_x
-                    image_y = field['y'] / scale_y
+                    y = field['y'] / scale_y
                     width = field['width'] / scale_x
                     height = field['height'] / scale_y
-
-                    # Flip Y coordinate from image space to PDF space
-                    y = page_height - image_y - height
 
                     # Draw X marker
                     # Use lighter red for transparency effect (RGB: 1.0, 0.3, 0.3)
