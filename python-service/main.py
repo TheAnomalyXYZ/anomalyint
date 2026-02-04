@@ -42,7 +42,9 @@ async def root():
         "endpoints": {
             "detect": "/detect-fields",
             "fill": "/fill-form",
-            "detectFillableAreas": "/detect-fillable-areas"
+            "detectFillableAreas": "/detect-fillable-areas",
+            "detectTableCells": "/detect-table-cells",
+            "annotatePdf": "/annotate-pdf"
         }
     }
 
@@ -310,20 +312,16 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
                 nparr = np.frombuffer(img_data, np.uint8)
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-                # Detect horizontal lines (underscore fields)
+                # Detect horizontal lines (underscore fields) only
                 lines = detect_horizontal_lines(image)
                 print(f"Page {page_num + 1}: Found {len(lines)} horizontal lines")
-
-                # Detect table cells
-                cells = detect_table_cells(image)
-                print(f"Page {page_num + 1}: Found {len(cells)} potential cells")
 
                 # Extract text with positions
                 text_elements = extract_text_with_positions(image)
                 print(f"Page {page_num + 1}: Extracted {len(text_elements)} text elements")
 
-                # Combine all detected fields
-                all_fields = lines + cells
+                # Use only line fields for this endpoint
+                all_fields = lines
 
                 # Associate labels with fields
                 labeled_fields = associate_labels_with_fields(text_elements, all_fields)
@@ -376,6 +374,105 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Fillable area detection failed: {str(e)}"
+        )
+
+@app.post("/detect-table-cells")
+async def detect_table_cells_endpoint(request: DetectFieldsRequest):
+    """
+    Detect table cells and structured form fields in PDF using contour detection.
+    This is more aggressive and may find overlapping regions.
+    """
+    try:
+        print(f"[detect-table-cells] Downloading PDF from: {request.pdfUrl}")
+
+        # Download the PDF
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
+            req = urllib.request.Request(
+                request.pdfUrl,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            )
+            with urllib.request.urlopen(req) as response:
+                temp_input.write(response.read())
+            temp_input_path = temp_input.name
+
+        try:
+            # Open PDF with PyMuPDF
+            pdf_document = fitz.open(temp_input_path)
+            all_fillable_areas = []
+            total_pages = len(pdf_document)
+
+            # Process each page
+            for page_num in range(total_pages):
+                page = pdf_document[page_num]
+
+                # Convert page to image
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x scale for better quality
+                img_data = pix.tobytes("png")
+
+                # Convert to numpy array for OpenCV
+                nparr = np.frombuffer(img_data, np.uint8)
+                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                # Detect table cells only
+                cells = detect_table_cells(image)
+                print(f"Page {page_num + 1}: Found {len(cells)} table cells")
+
+                # Extract text with positions
+                text_elements = extract_text_with_positions(image)
+                print(f"Page {page_num + 1}: Extracted {len(text_elements)} text elements")
+
+                # Use only cell fields for this endpoint
+                all_fields = cells
+
+                # Associate labels with fields
+                labeled_fields = associate_labels_with_fields(text_elements, all_fields)
+
+                # Add page number to each field
+                for field in labeled_fields:
+                    field['page'] = page_num + 1
+
+                all_fillable_areas.extend(labeled_fields)
+
+            pdf_document.close()
+
+            # Group fields by page for better organization
+            fields_by_page = {}
+            for field in all_fillable_areas:
+                page = field.get('page', 1)
+                if page not in fields_by_page:
+                    fields_by_page[page] = {
+                        "cells": [],
+                        "all_fields": []
+                    }
+
+                fields_by_page[page]["all_fields"].append(field)
+                if field['type'] == 'cell':
+                    fields_by_page[page]["cells"].append(field)
+
+            return {
+                "success": True,
+                "message": "Table cells detected successfully",
+                "totalPages": total_pages,
+                "fieldsDetected": len(all_fillable_areas),
+                "fields": all_fillable_areas,  # Return all fields
+                "fieldsByPage": fields_by_page,  # Organized by page
+                "summary": {
+                    "totalCells": sum(1 for f in all_fillable_areas if f['type'] == 'cell'),
+                }
+            }
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_input_path):
+                os.unlink(temp_input_path)
+
+    except Exception as e:
+        print(f"[detect-table-cells] Error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Table cell detection failed: {str(e)}"
         )
 
 @app.post("/annotate-pdf")

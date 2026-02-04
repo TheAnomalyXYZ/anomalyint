@@ -534,6 +534,8 @@ model clerk_documents {
   status          ClerkDocumentStatus  @default(uploaded)
   fields_detected Boolean              @default(false)
   detected_fields Json?
+  line_fields     Json?
+  table_fields    Json?
   total_pages     Int?
   filled_url      String?
   uploaded_at     DateTime             @default(now())

@@ -26,6 +26,8 @@ interface UploadedFile {
   fieldsDetected?: boolean;
   filledUrl?: string;
   detectedFields?: FillableField[];
+  lineFields?: FillableField[];
+  tableFields?: FillableField[];
   totalPages?: number;
 }
 
@@ -56,6 +58,8 @@ export function Clerk() {
           status: doc.status as UploadedFile['status'],
           fieldsDetected: doc.fields_detected,
           detectedFields: doc.detected_fields,
+          lineFields: doc.line_fields,
+          tableFields: doc.table_fields,
           totalPages: doc.total_pages,
           filledUrl: doc.filled_url || undefined,
         }));
@@ -248,6 +252,138 @@ export function Clerk() {
     }
   };
 
+  const handleDetectLines = async (fileId: string, pdfUrl: string) => {
+    try {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'detecting' as const } : f
+        )
+      );
+
+      const response = await fetch('/api/clerk/detect-fillable-areas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pdfUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to detect lines');
+      }
+
+      const data = await response.json();
+
+      const now = new Date().toISOString();
+      const { error: dbError } = await supabase
+        .from('clerk_documents')
+        .update({
+          status: 'completed',
+          fields_detected: true,
+          line_fields: data.fields || [],
+          total_pages: data.totalPages || 0,
+          processed_at: now,
+          updated_at: now,
+        })
+        .eq('id', fileId);
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+      }
+
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId
+            ? {
+                ...f,
+                status: 'completed' as const,
+                fieldsDetected: true,
+                lineFields: data.fields || [],
+                totalPages: data.totalPages || 0,
+              }
+            : f
+        )
+      );
+
+      const fieldCount = data.fieldsDetected || 0;
+      toast.success(`Detected ${fieldCount} horizontal lines!`);
+    } catch (error) {
+      console.error('Line detection error:', error);
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'error' as const } : f
+        )
+      );
+      toast.error('Failed to detect lines');
+    }
+  };
+
+  const handleDetectTables = async (fileId: string, pdfUrl: string) => {
+    try {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'detecting' as const } : f
+        )
+      );
+
+      const response = await fetch('/api/clerk/detect-table-cells', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pdfUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to detect table cells');
+      }
+
+      const data = await response.json();
+
+      const now = new Date().toISOString();
+      const { error: dbError } = await supabase
+        .from('clerk_documents')
+        .update({
+          status: 'completed',
+          fields_detected: true,
+          table_fields: data.fields || [],
+          total_pages: data.totalPages || 0,
+          processed_at: now,
+          updated_at: now,
+        })
+        .eq('id', fileId);
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+      }
+
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId
+            ? {
+                ...f,
+                status: 'completed' as const,
+                fieldsDetected: true,
+                tableFields: data.fields || [],
+                totalPages: data.totalPages || 0,
+              }
+            : f
+        )
+      );
+
+      const fieldCount = data.fieldsDetected || 0;
+      toast.success(`Detected ${fieldCount} table cells!`);
+    } catch (error) {
+      console.error('Table detection error:', error);
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'error' as const } : f
+        )
+      );
+      toast.error('Failed to detect table cells');
+    }
+  };
+
   const handleViewAnnotatedPdf = async (file: UploadedFile) => {
     try {
       if (!file.detectedFields || file.detectedFields.length === 0) {
@@ -292,6 +428,98 @@ export function Clerk() {
       setTimeout(() => URL.revokeObjectURL(url), 100);
 
       toast.success(`Annotated PDF with ${data.fieldsAnnotated} fields!`);
+    } catch (error) {
+      console.error('Annotation error:', error);
+      toast.error('Failed to generate annotated PDF');
+    }
+  };
+
+  const handleViewAnnotatedLines = async (file: UploadedFile) => {
+    try {
+      if (!file.lineFields || file.lineFields.length === 0) {
+        toast.error('No line fields detected yet. Please run line detection first.');
+        return;
+      }
+
+      toast.info('Generating annotated PDF with lines...');
+
+      const response = await fetch('/api/clerk/annotate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfUrl: file.url,
+          fields: file.lineFields,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate annotated PDF');
+      }
+
+      const data = await response.json();
+
+      const byteCharacters = atob(data.annotatedPdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      toast.success(`Annotated PDF with ${data.fieldsAnnotated} line fields!`);
+    } catch (error) {
+      console.error('Annotation error:', error);
+      toast.error('Failed to generate annotated PDF');
+    }
+  };
+
+  const handleViewAnnotatedTables = async (file: UploadedFile) => {
+    try {
+      if (!file.tableFields || file.tableFields.length === 0) {
+        toast.error('No table fields detected yet. Please run table detection first.');
+        return;
+      }
+
+      toast.info('Generating annotated PDF with tables...');
+
+      const response = await fetch('/api/clerk/annotate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfUrl: file.url,
+          fields: file.tableFields,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate annotated PDF');
+      }
+
+      const data = await response.json();
+
+      const byteCharacters = atob(data.annotatedPdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      toast.success(`Annotated PDF with ${data.fieldsAnnotated} table cells!`);
     } catch (error) {
       console.error('Annotation error:', error);
       toast.error('Failed to generate annotated PDF');
@@ -443,36 +671,37 @@ export function Clerk() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDetectFields(file.id, file.url)}
+                          onClick={() => handleDetectLines(file.id, file.url)}
                         >
-                          {file.fieldsDetected ? 'Re-detect Fields' : 'Detect Form Fields'}
+                          Detect Lines
                         </Button>
-                        {file.fieldsDetected && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDetectTables(file.id, file.url)}
+                        >
+                          Detect Tables
+                        </Button>
+                        {(file.lineFields || file.tableFields) && (
                           <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setExpandedFileId(expandedFileId === file.id ? null : file.id)}
-                            >
-                              {expandedFileId === file.id ? (
-                                <>
-                                  <ChevronUp className="h-4 w-4 mr-1" />
-                                  Hide Fields
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="h-4 w-4 mr-1" />
-                                  View Fields
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleViewAnnotatedPdf(file)}
-                            >
-                              View Annotated PDF
-                            </Button>
+                            {file.lineFields && file.lineFields.length > 0 && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleViewAnnotatedLines(file)}
+                              >
+                                View Lines PDF ({file.lineFields.length})
+                              </Button>
+                            )}
+                            {file.tableFields && file.tableFields.length > 0 && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleViewAnnotatedTables(file)}
+                              >
+                                View Tables PDF ({file.tableFields.length})
+                              </Button>
+                            )}
                             <Button
                               variant="default"
                               size="sm"
