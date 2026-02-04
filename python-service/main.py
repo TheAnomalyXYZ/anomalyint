@@ -45,10 +45,15 @@ async def detect_fields(request: DetectFieldsRequest):
     Detect form fields in a PDF using CommonForms
     """
     try:
+        print(f"[detect-fields] Attempting to download PDF from: {request.pdfUrl}")
         # Download the PDF from R2
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
-            with urllib.request.urlopen(request.pdfUrl) as response:
-                temp_input.write(response.read())
+            try:
+                with urllib.request.urlopen(request.pdfUrl) as response:
+                    temp_input.write(response.read())
+            except Exception as download_error:
+                print(f"[detect-fields] Download failed: {type(download_error).__name__}: {str(download_error)}")
+                raise
             temp_input_path = temp_input.name
 
         # Create temporary output file
