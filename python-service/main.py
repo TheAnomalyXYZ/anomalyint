@@ -420,16 +420,28 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                 page = pdf_document[page_num]
                 page_fields = fields_by_page.get(page_num + 1, [])
 
-                # Get page dimensions for coordinate scaling
+                # Calculate actual scale factor used during detection
+                # Detection uses: pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                # Get actual page dimensions
                 page_rect = page.rect
-                scale_factor = 2  # Match the 2x scale used during detection
+                page_width = page_rect.width
+                page_height = page_rect.height
+
+                # Get pixmap dimensions (what was used during detection)
+                detection_pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                pixmap_width = detection_pix.width
+                pixmap_height = detection_pix.height
+
+                # Calculate scale factors
+                scale_x = pixmap_width / page_width
+                scale_y = pixmap_height / page_height
 
                 for field in page_fields:
-                    # Scale coordinates back from detection resolution
-                    x = field['x'] / scale_factor
-                    y = field['y'] / scale_factor
-                    width = field['width'] / scale_factor
-                    height = field['height'] / scale_factor
+                    # Scale coordinates back from detection resolution to PDF points
+                    x = field['x'] / scale_x
+                    y = field['y'] / scale_y
+                    width = field['width'] / scale_x
+                    height = field['height'] / scale_y
 
                     # Draw X marker
                     # Red color for the X
