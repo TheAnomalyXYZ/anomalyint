@@ -5,6 +5,12 @@ import tempfile
 import os
 import urllib.request
 from commonforms import prepare_form
+import cv2
+import numpy as np
+import fitz  # PyMuPDF
+from typing import List, Dict, Any
+import pytesseract
+from PIL import Image
 
 app = FastAPI(title="CommonForms API")
 
@@ -31,7 +37,8 @@ async def root():
         "status": "running",
         "endpoints": {
             "detect": "/detect-fields",
-            "fill": "/fill-form"
+            "fill": "/fill-form",
+            "detectFillableAreas": "/detect-fillable-areas"
         }
     }
 
@@ -157,6 +164,191 @@ async def fill_form(request: FillFormRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Form filling failed: {str(e)}"
+        )
+
+def detect_horizontal_lines(image: np.ndarray) -> List[Dict[str, Any]]:
+    """
+    Detect horizontal lines that could be fillable underscores
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+
+    # Detect lines using HoughLinesP
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
+
+    horizontal_lines = []
+    if lines is not None:
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            # Check if line is roughly horizontal (small y difference)
+            if abs(y2 - y1) < 10 and abs(x2 - x1) > 50:
+                horizontal_lines.append({
+                    "type": "line",
+                    "x": min(x1, x2),
+                    "y": min(y1, y2),
+                    "width": abs(x2 - x1),
+                    "height": 20
+                })
+
+    return horizontal_lines
+
+def detect_table_cells(image: np.ndarray) -> List[Dict[str, Any]]:
+    """
+    Detect table structure and cells
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)[1]
+
+    # Find contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    cells = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        # Filter for rectangular shapes that could be table cells
+        if w > 50 and h > 15 and w < image.shape[1] * 0.9:
+            cells.append({
+                "type": "cell",
+                "x": x,
+                "y": y,
+                "width": w,
+                "height": h
+            })
+
+    return cells
+
+def extract_text_with_positions(image: np.ndarray) -> List[Dict[str, Any]]:
+    """
+    Extract text and their positions using OCR
+    """
+    try:
+        # Convert to PIL Image for pytesseract
+        pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+        # Get detailed OCR data
+        ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+
+        text_elements = []
+        for i in range(len(ocr_data['text'])):
+            text = ocr_data['text'][i].strip()
+            if text:  # Only include non-empty text
+                text_elements.append({
+                    "text": text,
+                    "x": ocr_data['left'][i],
+                    "y": ocr_data['top'][i],
+                    "width": ocr_data['width'][i],
+                    "height": ocr_data['height'][i],
+                    "confidence": ocr_data['conf'][i]
+                })
+
+        return text_elements
+    except Exception as e:
+        print(f"OCR failed: {str(e)}")
+        return []
+
+def associate_labels_with_fields(text_elements: List[Dict], fields: List[Dict]) -> List[Dict]:
+    """
+    Associate text labels with detected fillable fields
+    """
+    for field in fields:
+        # Find text to the left of the field
+        nearby_text = []
+        for text_elem in text_elements:
+            # Check if text is to the left and roughly on the same line
+            if (text_elem['x'] < field['x'] and
+                abs(text_elem['y'] - field['y']) < 30):
+                nearby_text.append(text_elem)
+
+        # Sort by distance and take the closest
+        if nearby_text:
+            nearby_text.sort(key=lambda t: field['x'] - (t['x'] + t['width']))
+            field['label'] = ' '.join([t['text'] for t in nearby_text[:5]])
+        else:
+            field['label'] = ""
+
+    return fields
+
+@app.post("/detect-fillable-areas")
+async def detect_fillable_areas(request: DetectFieldsRequest):
+    """
+    Detect fillable areas in a PDF using computer vision
+    """
+    try:
+        print(f"[detect-fillable-areas] Downloading PDF from: {request.pdfUrl}")
+
+        # Download the PDF from R2 with proper headers
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
+            req = urllib.request.Request(
+                request.pdfUrl,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            )
+            with urllib.request.urlopen(req) as response:
+                temp_input.write(response.read())
+            temp_input_path = temp_input.name
+
+        try:
+            # Open PDF with PyMuPDF
+            pdf_document = fitz.open(temp_input_path)
+            all_fillable_areas = []
+
+            # Process each page
+            for page_num in range(len(pdf_document)):
+                page = pdf_document[page_num]
+
+                # Convert page to image
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x scale for better quality
+                img_data = pix.tobytes("png")
+
+                # Convert to numpy array for OpenCV
+                nparr = np.frombuffer(img_data, np.uint8)
+                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                # Detect horizontal lines (underscore fields)
+                lines = detect_horizontal_lines(image)
+                print(f"Page {page_num + 1}: Found {len(lines)} horizontal lines")
+
+                # Detect table cells
+                cells = detect_table_cells(image)
+                print(f"Page {page_num + 1}: Found {len(cells)} potential cells")
+
+                # Extract text with positions
+                text_elements = extract_text_with_positions(image)
+                print(f"Page {page_num + 1}: Extracted {len(text_elements)} text elements")
+
+                # Combine all detected fields
+                all_fields = lines + cells
+
+                # Associate labels with fields
+                labeled_fields = associate_labels_with_fields(text_elements, all_fields)
+
+                # Add page number to each field
+                for field in labeled_fields:
+                    field['page'] = page_num + 1
+
+                all_fillable_areas.extend(labeled_fields)
+
+            pdf_document.close()
+
+            return {
+                "success": True,
+                "message": "Fillable areas detected successfully",
+                "totalPages": len(pdf_document),
+                "fieldsDetected": len(all_fillable_areas),
+                "fields": all_fillable_areas[:50]  # Limit to first 50 for response size
+            }
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_input_path):
+                os.unlink(temp_input_path)
+
+    except Exception as e:
+        print(f"[detect-fillable-areas] Error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fillable area detection failed: {str(e)}"
         )
 
 if __name__ == "__main__":

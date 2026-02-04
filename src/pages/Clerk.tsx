@@ -5,6 +5,16 @@ import { Button } from '../components/ui/button';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface FillableField {
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label?: string;
+  page?: number;
+}
+
 interface UploadedFile {
   id: string;
   name: string;
@@ -14,6 +24,8 @@ interface UploadedFile {
   status: 'uploading' | 'completed' | 'error' | 'detecting' | 'filling';
   fieldsDetected?: boolean;
   filledUrl?: string;
+  detectedFields?: FillableField[];
+  totalPages?: number;
 }
 
 export function Clerk() {
@@ -114,8 +126,8 @@ export function Clerk() {
         )
       );
 
-      // Call the detect-fields endpoint
-      const response = await fetch('/api/clerk/detect-fields', {
+      // Call the detect-fillable-areas endpoint (CV-based detection)
+      const response = await fetch('/api/clerk/detect-fillable-areas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,12 +136,12 @@ export function Clerk() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to detect form fields');
+        throw new Error('Failed to detect fillable areas');
       }
 
       const data = await response.json();
 
-      // Update file status
+      // Update file status with detected fields
       setFiles((prev) =>
         prev.map((f) =>
           f.id === fileId
@@ -137,12 +149,15 @@ export function Clerk() {
                 ...f,
                 status: 'completed' as const,
                 fieldsDetected: true,
+                detectedFields: data.fields || [],
+                totalPages: data.totalPages || 0,
               }
             : f
         )
       );
 
-      toast.success('Form fields detected! PDF is ready for filling.');
+      const fieldCount = data.fieldsDetected || 0;
+      toast.success(`Detected ${fieldCount} fillable areas! PDF is ready for filling.`);
     } catch (error) {
       console.error('Field detection error:', error);
       setFiles((prev) =>
@@ -150,7 +165,7 @@ export function Clerk() {
           f.id === fileId ? { ...f, status: 'error' as const } : f
         )
       );
-      toast.error('Failed to detect form fields');
+      toast.error('Failed to detect fillable areas');
     }
   };
 
@@ -257,9 +272,18 @@ export function Clerk() {
                       </div>
                     )}
                     {file.status === 'error' && (
-                      <div className="flex items-center gap-2 text-red-500">
-                        <AlertCircle className="h-5 w-5" />
-                        <span className="text-sm">Failed</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 text-red-500">
+                          <AlertCircle className="h-5 w-5" />
+                          <span className="text-sm">Failed</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDetectFields(file.id, file.url)}
+                        >
+                          Retry
+                        </Button>
                       </div>
                     )}
 

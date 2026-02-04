@@ -7,3 +7,7 @@ commonforms==0.2.1
 pillow>=10.0.0
 pydantic>=2.11.9
 python-multipart==0.0.6
+opencv-python-headless==4.9.0.80
+PyMuPDF==1.23.26
+pytesseract==0.3.10
+numpy>=1.24.0

@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Install system dependencies required for OpenCV/CommonForms
+# Install system dependencies required for OpenCV/CommonForms/Tesseract
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     libxrender1 \
     libxext6 \
     libsm6 \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
