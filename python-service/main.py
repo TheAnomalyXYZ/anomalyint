@@ -420,6 +420,9 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                 page = pdf_document[page_num]
                 page_fields = fields_by_page.get(page_num + 1, [])
 
+                # Clean page contents to standardize orientation before drawing
+                page.clean_contents()
+
                 # Check for page rotation
                 page_rotation = page.rotation
                 print(f"[annotate-pdf] Page {page_num + 1} rotation: {page_rotation} degrees")
