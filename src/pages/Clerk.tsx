@@ -711,6 +711,13 @@ export function Clerk() {
                             >
                               Fill with AI
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setExpandedFileId(expandedFileId === file.id ? null : file.id)}
+                            >
+                              {expandedFileId === file.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
                           </>
                         )}
                       </>
@@ -719,61 +726,131 @@ export function Clerk() {
                   </div>
 
                   {/* Expanded Fields View */}
-                  {expandedFileId === file.id && file.fieldsDetected && file.detectedFields && (
+                  {expandedFileId === file.id && (file.lineFields || file.tableFields) && (
                     <div className="border-t p-4 bg-gray-50 dark:bg-gray-900">
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-semibold mb-2">Detected Fields ({file.detectedFields.length})</h4>
-                          <div className="text-sm text-muted-foreground mb-3">
-                            Total Pages: {file.totalPages}
-                          </div>
-                        </div>
-
-                        <div className="max-h-96 overflow-y-auto space-y-3">
-                          {file.detectedFields.map((field: any, idx: number) => (
-                            <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                  <span className="font-medium">Type:</span> {field.type}
-                                </div>
-                                <div>
-                                  <span className="font-medium">Page:</span> {field.page || 'N/A'}
-                                </div>
-                                <div>
-                                  <span className="font-medium">Position:</span> ({field.x}, {field.y})
-                                </div>
-                                <div>
-                                  <span className="font-medium">Size:</span> {field.width} × {field.height}
-                                </div>
-                                {field.label && (
-                                  <div className="col-span-2">
-                                    <span className="font-medium">Label:</span> {field.label}
-                                  </div>
-                                )}
+                      <div className="space-y-6">
+                        {/* Line Fields Section */}
+                        {file.lineFields && file.lineFields.length > 0 && (
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="font-semibold mb-2">Line Fields ({file.lineFields.length})</h4>
+                              <div className="text-sm text-muted-foreground mb-3">
+                                Horizontal line detections
                               </div>
                             </div>
-                          ))}
-                        </div>
 
-                        <div className="pt-3 border-t">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const dataStr = JSON.stringify(file.detectedFields, null, 2);
-                              const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                              const url = URL.createObjectURL(dataBlob);
-                              const link = document.createElement('a');
-                              link.href = url;
-                              link.download = `${file.name}-fields.json`;
-                              link.click();
-                              URL.revokeObjectURL(url);
-                              toast.success('Fields data downloaded');
-                            }}
-                          >
-                            Download Fields JSON
-                          </Button>
-                        </div>
+                            <div className="max-h-96 overflow-y-auto space-y-3">
+                              {file.lineFields.map((field: any, idx: number) => (
+                                <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
+                                  <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                      <span className="font-medium">Type:</span> {field.type}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Page:</span> {field.page || 'N/A'}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Position:</span> ({field.x}, {field.y})
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Size:</span> {field.width} × {field.height}
+                                    </div>
+                                    {field.label && (
+                                      <div className="col-span-2">
+                                        <span className="font-medium">Label:</span> {field.label}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="pt-3 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const dataStr = JSON.stringify(file.lineFields, null, 2);
+                                  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                                  const url = URL.createObjectURL(dataBlob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${file.name}-lines.json`;
+                                  link.click();
+                                  URL.revokeObjectURL(url);
+                                  toast.success('Line fields JSON downloaded');
+                                }}
+                              >
+                                Download Line Fields JSON
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Table Fields Section */}
+                        {file.tableFields && file.tableFields.length > 0 && (
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="font-semibold mb-2">Table Cells ({file.tableFields.length})</h4>
+                              <div className="text-sm text-muted-foreground mb-3">
+                                Table structure detections
+                              </div>
+                            </div>
+
+                            <div className="max-h-96 overflow-y-auto space-y-3">
+                              {file.tableFields.map((field: any, idx: number) => (
+                                <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
+                                  <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                      <span className="font-medium">Type:</span> {field.type}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Page:</span> {field.page || 'N/A'}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Position:</span> ({field.x}, {field.y})
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Size:</span> {field.width} × {field.height}
+                                    </div>
+                                    {field.label && (
+                                      <div className="col-span-2">
+                                        <span className="font-medium">Label:</span> {field.label}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="pt-3 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const dataStr = JSON.stringify(file.tableFields, null, 2);
+                                  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                                  const url = URL.createObjectURL(dataBlob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${file.name}-tables.json`;
+                                  link.click();
+                                  URL.revokeObjectURL(url);
+                                  toast.success('Table fields JSON downloaded');
+                                }}
+                              >
+                                Download Table Fields JSON
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Summary */}
+                        {file.totalPages && (
+                          <div className="text-sm text-muted-foreground pt-3 border-t">
+                            Total Pages: {file.totalPages}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

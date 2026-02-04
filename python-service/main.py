@@ -580,11 +580,7 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                     if label_y < 0:
                         label_y = y + height + 12
 
-                    # Draw white background for text
-                    text_rect = fitz.Rect(x, label_y - 10, x + 200, label_y + 2)
-                    page.draw_rect(text_rect, color=(1, 1, 1), fill=(1, 1, 1))
-
-                    # Draw text (no rotation)
+                    # Draw text directly on PDF (no background)
                     page.insert_text(
                         fitz.Point(x, label_y),
                         label,
