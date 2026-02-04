@@ -25,6 +25,13 @@ app.add_middleware(
 
 class DetectFieldsRequest(BaseModel):
     pdfUrl: str
+    # Optional line detection parameters for tuning
+    cannyLow: int = 150
+    cannyHigh: int = 250
+    houghThreshold: int = 200
+    minLineLength: int = 100
+    maxLineGap: int = 5
+    minWidth: int = 100
 
 class FillFormRequest(BaseModel):
     pdfUrl: str
@@ -172,24 +179,33 @@ async def fill_form(request: FillFormRequest):
             detail=f"Form filling failed: {str(e)}"
         )
 
-def detect_horizontal_lines(image: np.ndarray) -> List[Dict[str, Any]]:
+def detect_horizontal_lines(
+    image: np.ndarray,
+    canny_low: int = 150,
+    canny_high: int = 250,
+    hough_threshold: int = 200,
+    min_line_length: int = 100,
+    max_line_gap: int = 5,
+    min_width: int = 100
+) -> List[Dict[str, Any]]:
     """
     Detect horizontal lines that could be fillable underscores
+    Parameters can be adjusted for tuning detection sensitivity
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # Strict Canny thresholds to avoid detecting text edges
-    edges = cv2.Canny(gray, 150, 250, apertureSize=3)
+    # Canny edge detection with configurable thresholds
+    edges = cv2.Canny(gray, canny_low, canny_high, apertureSize=3)
 
-    # Detect lines using HoughLinesP with strict parameters
-    # High threshold to only detect clear, solid lines
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=200, minLineLength=100, maxLineGap=5)
+    # Detect lines using HoughLinesP with configurable parameters
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=hough_threshold,
+                           minLineLength=min_line_length, maxLineGap=max_line_gap)
 
     horizontal_lines = []
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            # Check if line is roughly horizontal and significantly longer than typical words
-            if abs(y2 - y1) < 10 and abs(x2 - x1) > 100:
+            # Check if line is roughly horizontal and meets minimum width
+            if abs(y2 - y1) < 10 and abs(x2 - x1) > min_width:
                 horizontal_lines.append({
                     "type": "line",
                     "x": int(min(x1, x2)),
@@ -314,9 +330,17 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
                 nparr = np.frombuffer(img_data, np.uint8)
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-                # Detect horizontal lines (underscore fields) only
-                lines = detect_horizontal_lines(image)
-                print(f"Page {page_num + 1}: Found {len(lines)} horizontal lines")
+                # Detect horizontal lines (underscore fields) with configurable parameters
+                lines = detect_horizontal_lines(
+                    image,
+                    canny_low=request.cannyLow,
+                    canny_high=request.cannyHigh,
+                    hough_threshold=request.houghThreshold,
+                    min_line_length=request.minLineLength,
+                    max_line_gap=request.maxLineGap,
+                    min_width=request.minWidth
+                )
+                print(f"Page {page_num + 1}: Found {len(lines)} horizontal lines (params: canny={request.cannyLow}/{request.cannyHigh}, hough={request.houghThreshold}, minLen={request.minLineLength}, gap={request.maxLineGap}, minWidth={request.minWidth})")
 
                 # Extract text with positions
                 text_elements = extract_text_with_positions(image)
