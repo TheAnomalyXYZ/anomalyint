@@ -11,17 +11,17 @@ CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks
 -- Create match_chunks function for RAG retrieval
 CREATE OR REPLACE FUNCTION match_chunks(
   query_embedding vector(1536),
-  filter_corpus_id VARCHAR(36),
+  filter_corpus_id TEXT,
   match_threshold FLOAT DEFAULT 0.7,
   match_count INT DEFAULT 5
 )
 RETURNS TABLE (
-  chunk_id VARCHAR(36),
-  document_id VARCHAR(36),
+  chunk_id TEXT,
+  document_id TEXT,
   content TEXT,
   similarity FLOAT,
   metadata JSONB,
-  file_name VARCHAR(500)
+  file_name TEXT
 ) AS $$
 BEGIN
   RETURN QUERY
