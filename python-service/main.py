@@ -46,10 +46,16 @@ async def detect_fields(request: DetectFieldsRequest):
     """
     try:
         print(f"[detect-fields] Attempting to download PDF from: {request.pdfUrl}")
-        # Download the PDF from R2
+        # Download the PDF from R2 with proper headers to avoid Cloudflare bot detection
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
             try:
-                with urllib.request.urlopen(request.pdfUrl) as response:
+                req = urllib.request.Request(
+                    request.pdfUrl,
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                )
+                with urllib.request.urlopen(req) as response:
                     temp_input.write(response.read())
             except Exception as download_error:
                 print(f"[detect-fields] Download failed: {type(download_error).__name__}: {str(download_error)}")
@@ -105,9 +111,15 @@ async def fill_form(request: FillFormRequest):
     Fill form fields in a PDF using AI
     """
     try:
-        # Download the PDF from R2
+        # Download the PDF from R2 with proper headers
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
-            with urllib.request.urlopen(request.pdfUrl) as response:
+            req = urllib.request.Request(
+                request.pdfUrl,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            )
+            with urllib.request.urlopen(req) as response:
                 temp_input.write(response.read())
             temp_input_path = temp_input.name
 
