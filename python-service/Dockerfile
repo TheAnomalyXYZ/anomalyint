@@ -23,5 +23,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Railway will provide PORT via environment variable
-# Start the application
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Start the application using Python (handles PORT env var conversion)
+CMD ["python", "main.py"]
