@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
@@ -526,6 +526,26 @@ export function Clerk() {
     }
   };
 
+  const handleDeleteFile = async (fileId: string, fileName: string) => {
+    try {
+      // Delete from database (this will cascade delete all associated data)
+      const { error } = await supabase
+        .from('clerk_documents')
+        .delete()
+        .eq('id', fileId);
+
+      if (error) throw error;
+
+      // Remove from UI state
+      setFiles((prev) => prev.filter((f) => f.id !== fileId));
+
+      toast.success(`${fileName} deleted successfully`);
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error(`Failed to delete ${fileName}`);
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -721,6 +741,18 @@ export function Clerk() {
                           </>
                         )}
                       </>
+                    )}
+
+                    {/* Delete button - always available */}
+                    {file.status !== 'uploading' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteFile(file.id, file.name)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                   </div>
