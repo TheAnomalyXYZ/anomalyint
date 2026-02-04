@@ -248,6 +248,56 @@ export function Clerk() {
     }
   };
 
+  const handleViewAnnotatedPdf = async (file: UploadedFile) => {
+    try {
+      if (!file.detectedFields || file.detectedFields.length === 0) {
+        toast.error('No fields detected yet. Please run field detection first.');
+        return;
+      }
+
+      toast.info('Generating annotated PDF...');
+
+      // Call the annotate-pdf endpoint
+      const response = await fetch('/api/clerk/annotate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfUrl: file.url,
+          fields: file.detectedFields,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate annotated PDF');
+      }
+
+      const data = await response.json();
+
+      // Convert base64 to blob
+      const byteCharacters = atob(data.annotatedPdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      // Create URL and open in new tab
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+
+      // Clean up URL after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      toast.success(`Annotated PDF with ${data.fieldsAnnotated} fields!`);
+    } catch (error) {
+      console.error('Annotation error:', error);
+      toast.error('Failed to generate annotated PDF');
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -415,6 +465,13 @@ export function Clerk() {
                                   View Fields
                                 </>
                               )}
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleViewAnnotatedPdf(file)}
+                            >
+                              View Annotated PDF
                             </Button>
                             <Button
                               variant="default"

@@ -30,6 +30,10 @@ class FillFormRequest(BaseModel):
     pdfUrl: str
     context: dict = {}
 
+class AnnotatePdfRequest(BaseModel):
+    pdfUrl: str
+    fields: List[Dict[str, Any]]
+
 @app.get("/")
 async def root():
     return {
@@ -372,6 +376,132 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Fillable area detection failed: {str(e)}"
+        )
+
+@app.post("/annotate-pdf")
+async def annotate_pdf(request: AnnotatePdfRequest):
+    """
+    Create an annotated PDF with detected fields marked
+    """
+    try:
+        print(f"[annotate-pdf] Downloading PDF from: {request.pdfUrl}")
+
+        # Download the PDF
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
+            req = urllib.request.Request(
+                request.pdfUrl,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            )
+            with urllib.request.urlopen(req) as response:
+                temp_input.write(response.read())
+            temp_input_path = temp_input.name
+
+        # Create output file
+        temp_output = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        temp_output_path = temp_output.name
+        temp_output.close()
+
+        try:
+            # Open PDF
+            pdf_document = fitz.open(temp_input_path)
+
+            # Group fields by page
+            fields_by_page = {}
+            for field in request.fields:
+                page = field.get('page', 1)
+                if page not in fields_by_page:
+                    fields_by_page[page] = []
+                fields_by_page[page].append(field)
+
+            # Annotate each page
+            for page_num in range(len(pdf_document)):
+                page = pdf_document[page_num]
+                page_fields = fields_by_page.get(page_num + 1, [])
+
+                # Get page dimensions for coordinate scaling
+                page_rect = page.rect
+                scale_factor = 2  # Match the 2x scale used during detection
+
+                for field in page_fields:
+                    # Scale coordinates back from detection resolution
+                    x = field['x'] / scale_factor
+                    y = field['y'] / scale_factor
+                    width = field['width'] / scale_factor
+                    height = field['height'] / scale_factor
+
+                    # Draw X marker
+                    # Red color for the X
+                    red = (1, 0, 0)
+
+                    # Draw X from top-left to bottom-right
+                    page.draw_line(
+                        fitz.Point(x, y),
+                        fitz.Point(x + width, y + height),
+                        color=red,
+                        width=2
+                    )
+                    # Draw X from top-right to bottom-left
+                    page.draw_line(
+                        fitz.Point(x + width, y),
+                        fitz.Point(x, y + height),
+                        color=red,
+                        width=2
+                    )
+
+                    # Draw bounding box
+                    rect = fitz.Rect(x, y, x + width, y + height)
+                    page.draw_rect(rect, color=red, width=1)
+
+                    # Add label with type and coordinates
+                    label = f"{field['type']}: ({field['x']},{field['y']})"
+
+                    # Position label above the field
+                    label_y = y - 5
+                    if label_y < 0:
+                        label_y = y + height + 12
+
+                    # Draw white background for text
+                    text_rect = fitz.Rect(x, label_y - 10, x + 200, label_y + 2)
+                    page.draw_rect(text_rect, color=(1, 1, 1), fill=(1, 1, 1))
+
+                    # Draw text
+                    page.insert_text(
+                        fitz.Point(x, label_y),
+                        label,
+                        fontsize=8,
+                        color=red
+                    )
+
+            # Save annotated PDF
+            pdf_document.save(temp_output_path)
+            pdf_document.close()
+
+            # Read the annotated PDF
+            with open(temp_output_path, 'rb') as f:
+                import base64
+                pdf_data = base64.b64encode(f.read()).decode('utf-8')
+
+            return {
+                "success": True,
+                "message": "PDF annotated successfully",
+                "annotatedPdf": pdf_data,  # Base64 encoded PDF
+                "fieldsAnnotated": len(request.fields)
+            }
+
+        finally:
+            # Clean up temporary files
+            if os.path.exists(temp_input_path):
+                os.unlink(temp_input_path)
+            if os.path.exists(temp_output_path):
+                os.unlink(temp_output_path)
+
+    except Exception as e:
+        print(f"[annotate-pdf] Error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"PDF annotation failed: {str(e)}"
         )
 
 if __name__ == "__main__":
