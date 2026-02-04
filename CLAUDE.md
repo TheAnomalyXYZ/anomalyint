@@ -459,3 +459,112 @@ If Railway doesn't auto-deploy after git push:
 ```bash
 cd python-service && railway up
 ```
+
+## Vercel Frontend Deployment Monitoring
+
+**IMPORTANT: The React frontend is deployed to Vercel. When making changes to the frontend, follow this monitoring workflow.**
+
+### Deployment Monitoring Workflow
+
+**Always monitor deployments actively** - Vercel auto-deploys on git push to main branch.
+
+#### 1. Check Deployment Status
+
+After pushing changes to trigger a deployment:
+
+```bash
+npx vercel list --status BUILDING,READY | head -8
+```
+
+This shows recent deployments with their status:
+- **● Building** - Deployment is currently building
+- **● Ready** - Deployment completed successfully (Production)
+- **● Error** - Build failed
+
+#### 2. Monitor Specific Deployment
+
+To check a specific deployment's progress:
+
+```bash
+# List deployments to find the URL
+npx vercel list | head -5
+
+# View logs for a specific deployment
+npx vercel logs <deployment-url>
+```
+
+Example:
+```bash
+npx vercel logs https://anomalyint-qovqre23s-anomalygames.vercel.app
+```
+
+#### 3. Active Monitoring Pattern
+
+**Example workflow from a recent deployment:**
+
+```bash
+# Push changes
+git add . && git commit -m "feat: add feature" && git push
+
+# Check for new deployment (should appear within seconds)
+npx vercel list --status BUILDING,READY | head -8
+# Output shows: ● Building status for newest deployment
+
+# Wait 60 seconds and check again
+sleep 60 && npx vercel list --status BUILDING,READY | head -8
+# May still be building (typical build time: 1-2 minutes)
+
+# Wait another 60 seconds
+sleep 60 && npx vercel list --status BUILDING,READY,ERROR | head -8
+# Output shows: ● Ready status (deployment complete!)
+```
+
+#### 4. Vercel CLI Commands Reference
+
+```bash
+# List all deployments
+npx vercel list
+# or shorthand
+npx vercel ls
+
+# Filter by status
+npx vercel list --status READY
+npx vercel list --status BUILDING,ERROR
+
+# Get deployment details
+npx vercel inspect <deployment-url>
+
+# View deployment logs
+npx vercel logs <deployment-url>
+
+# Pagination
+npx vercel ls --next <timestamp>
+
+# JSON format for scripting
+npx vercel list --format json
+```
+
+### Deployment Timeline
+
+Typical Vercel deployment timeline:
+1. **0s** - Git push triggers deployment
+2. **0-10s** - Deployment appears with **● Building** status
+3. **1-2m** - Build completes, status changes to **● Ready**
+4. **Total**: ~2 minutes from push to production
+
+### Common Deployment Statuses
+
+- **● Building** - Currently building (1-2 minutes typical)
+- **● Ready** - Successfully deployed to production
+- **● Error** - Build failed, check logs
+- **● Canceled** - Deployment was canceled
+
+### Vercel vs Railway Comparison
+
+| Feature | Vercel | Railway |
+|---------|--------|---------|
+| Status | Building → Ready/Error | Queued → Building → Deploying → Success/Failed |
+| Identifier | Deployment URL | Deployment ID |
+| Typical Build | 1-2 minutes | 1-2 minutes |
+| Auto-deploy | On git push | On git push |
+| CLI Tool | `npx vercel` | `railway` |
