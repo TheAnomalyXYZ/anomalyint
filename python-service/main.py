@@ -332,12 +332,34 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
 
             pdf_document.close()
 
+            # Group fields by page for better organization
+            fields_by_page = {}
+            for field in all_fillable_areas:
+                page = field.get('page', 1)
+                if page not in fields_by_page:
+                    fields_by_page[page] = {
+                        "lines": [],
+                        "cells": [],
+                        "all_fields": []
+                    }
+
+                fields_by_page[page]["all_fields"].append(field)
+                if field['type'] == 'line':
+                    fields_by_page[page]["lines"].append(field)
+                elif field['type'] == 'cell':
+                    fields_by_page[page]["cells"].append(field)
+
             return {
                 "success": True,
                 "message": "Fillable areas detected successfully",
                 "totalPages": total_pages,
                 "fieldsDetected": len(all_fillable_areas),
-                "fields": all_fillable_areas[:50]  # Limit to first 50 for response size
+                "fields": all_fillable_areas,  # Return all fields
+                "fieldsByPage": fields_by_page,  # Organized by page
+                "summary": {
+                    "totalLines": sum(1 for f in all_fillable_areas if f['type'] == 'line'),
+                    "totalCells": sum(1 for f in all_fillable_areas if f['type'] == 'cell'),
+                }
             }
 
         finally:
