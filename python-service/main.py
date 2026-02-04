@@ -480,23 +480,21 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                     label = f"{field['type']}: ({field['x']},{field['y']})"
 
                     # Position label above the field
-                    label_y = y - 15
+                    label_y = y - 5
                     if label_y < 0:
-                        label_y = y + height + 15
-
-                    # Define text box rectangle
-                    text_rect = fitz.Rect(x, label_y, x + 200, label_y + 12)
+                        label_y = y + height + 12
 
                     # Draw white background for text
+                    text_rect = fitz.Rect(x, label_y - 10, x + 200, label_y + 2)
                     page.draw_rect(text_rect, color=(1, 1, 1), fill=(1, 1, 1))
 
-                    # Draw text using textbox (more robust than insert_text)
-                    page.insert_textbox(
-                        text_rect,
+                    # Draw text with 180 degree rotation to fix upside-down rendering
+                    page.insert_text(
+                        fitz.Point(x, label_y),
                         label,
                         fontsize=8,
                         color=red,
-                        rotate=0
+                        rotate=180
                     )
 
             # Save annotated PDF
