@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
@@ -33,6 +33,7 @@ export function Clerk() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedFileId, setExpandedFileId] = useState<string | null>(null);
 
   // Fetch previously uploaded files on component mount
   useEffect(() => {
@@ -333,19 +334,25 @@ export function Clerk() {
               {files.map((file) => (
                 <div
                   key={file.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
-                  <div className="flex items-center gap-3 flex-1">
-                    <FileText className="h-8 w-8 text-red-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{file.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatFileSize(file.size)} • {file.uploadedAt.toLocaleString()}
-                      </p>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <FileText className="h-8 w-8 text-red-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{file.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatFileSize(file.size)} • {file.uploadedAt.toLocaleString()}
+                        </p>
+                        {file.fieldsDetected && file.detectedFields && (
+                          <p className="text-sm text-primary mt-1">
+                            {file.detectedFields.length} fields detected across {file.totalPages} pages
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3">
                     {file.status === 'uploading' && (
                       <div className="flex items-center gap-2 text-blue-500">
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -391,19 +398,99 @@ export function Clerk() {
                           {file.fieldsDetected ? 'Re-detect Fields' : 'Detect Form Fields'}
                         </Button>
                         {file.fieldsDetected && (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => {
-                              toast.info('AI form filling coming in next iteration!');
-                            }}
-                          >
-                            Fill with AI
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setExpandedFileId(expandedFileId === file.id ? null : file.id)}
+                            >
+                              {expandedFileId === file.id ? (
+                                <>
+                                  <ChevronUp className="h-4 w-4 mr-1" />
+                                  Hide Fields
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="h-4 w-4 mr-1" />
+                                  View Fields
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                toast.info('AI form filling coming in next iteration!');
+                              }}
+                            >
+                              Fill with AI
+                            </Button>
+                          </>
                         )}
                       </>
                     )}
                   </div>
+                  </div>
+
+                  {/* Expanded Fields View */}
+                  {expandedFileId === file.id && file.fieldsDetected && file.detectedFields && (
+                    <div className="border-t p-4 bg-gray-50 dark:bg-gray-900">
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-semibold mb-2">Detected Fields ({file.detectedFields.length})</h4>
+                          <div className="text-sm text-muted-foreground mb-3">
+                            Total Pages: {file.totalPages}
+                          </div>
+                        </div>
+
+                        <div className="max-h-96 overflow-y-auto space-y-3">
+                          {file.detectedFields.map((field: any, idx: number) => (
+                            <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="font-medium">Type:</span> {field.type}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Page:</span> {field.page || 'N/A'}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Position:</span> ({field.x}, {field.y})
+                                </div>
+                                <div>
+                                  <span className="font-medium">Size:</span> {field.width} × {field.height}
+                                </div>
+                                {field.label && (
+                                  <div className="col-span-2">
+                                    <span className="font-medium">Label:</span> {field.label}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="pt-3 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const dataStr = JSON.stringify(file.detectedFields, null, 2);
+                              const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                              const url = URL.createObjectURL(dataBlob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `${file.name}-fields.json`;
+                              link.click();
+                              URL.revokeObjectURL(url);
+                              toast.success('Fields data downloaded');
+                            }}
+                          >
+                            Download Fields JSON
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
