@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Railway will provide PORT via environment variable
-# Use bash to expand PORT with default value
-CMD ["bash", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Make start script executable
+RUN chmod +x start.sh
+
+# Use start script to handle PORT env var
+CMD ["./start.sh"]
