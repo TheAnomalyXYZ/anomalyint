@@ -1,6 +1,3 @@
-// Prisma schema for Predictive Markets Dashboard
-// Compatible with Supabase PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,484 +7,435 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?  @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  answers              Answer[]
-  reviewedProposals    AIResolutionProposal[]
-
-  @@map("users")
+model agent_sources {
+  id                  Int             @id @default(autoincrement())
+  agent_id            String
+  type                AgentSourceType
+  config_url          String?
+  config_subreddit    String?
+  config_api_endpoint String?
+  config_feed_url     String?
+  created_at          DateTime        @default(now())
+  agents              agents          @relation(fields: [agent_id], references: [id], onDelete: Cascade)
 }
 
-model Source {
-  id          String      @id @default(cuid())
-  type        SourceType
-  url         String      @db.Text
-  title       String      @db.VarChar(500)
-  outlet      String?
-  trustLevel  TrustLevel? @map("trust_level")
-  fetchedAt   DateTime    @map("fetched_at")
-  content     String?     @db.Text
-  isPinned    Boolean     @default(false) @map("is_pinned")
-  createdAt   DateTime    @default(now()) @map("created_at")
-
-  eventSources EventSource[]
-
-  @@map("sources")
+model agents {
+  id                String          @id
+  name              String
+  description       String?
+  categories        String[]        @default([])
+  event_prompt      String
+  resolution_prompt String?
+  base_model        String          @default("chatgpt-4o-latest") @db.VarChar(100)
+  frequency         AgentFrequency  @default(daily)
+  status            AgentStatus     @default(active)
+  events_created    Int             @default(0)
+  last_run          DateTime?
+  next_run          DateTime?
+  is_template       Boolean         @default(false)
+  created_at        DateTime        @default(now())
+  updated_at        DateTime
+  agent_sources     agent_sources[]
+  events            events[]
 }
 
-model Category {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique @db.VarChar(100)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  eventCategories EventCategory[]
-
-  @@map("categories")
+model ai_resolution_proposals {
+  id               String                   @id
+  event_id         String                   @unique(map: "ai_resolution_proposals_question_id_key")
+  resolution       Outcome
+  confidence_score Decimal                  @db.Decimal(5, 4)
+  reasoning        String
+  evidence         Json?
+  status           ResolutionProposalStatus @default(pending)
+  created_by       String                   @default("AI")
+  reviewed_by      String?
+  reviewed_at      DateTime?
+  created_at       DateTime                 @default(now())
+  updated_at       DateTime
+  events           events                   @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "ai_resolution_proposals_question_id_fkey")
+  users            users?                   @relation(fields: [reviewed_by], references: [id])
 }
 
-model Tag {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique @db.VarChar(100)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  eventTags EventTag[]
-
-  @@map("tags")
+model answers {
+  id          String   @id
+  event_id    String
+  event_title String   @db.VarChar(1000)
+  user_id     String
+  user_name   String
+  choice      Choice
+  confidence  Decimal  @default(0.50) @db.Decimal(3, 2)
+  channel     String   @default("web") @db.VarChar(50)
+  placed_at   DateTime @default(now())
+  events      events   @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "answers_question_id_fkey")
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-model RiskFlag {
-  id          Int              @id @default(autoincrement())
-  name        String           @unique @db.VarChar(100)
-  description String?          @db.Text
-  severity    RiskSeverity     @default(medium)
-  createdAt   DateTime         @default(now()) @map("created_at")
-
-  eventRiskFlags EventRiskFlag[]
-
-  @@map("risk_flags")
+model audit_events {
+  id          String   @id
+  timestamp   DateTime @default(now())
+  actor       String
+  action      String
+  entity_type String   @db.VarChar(100)
+  entity_id   String
+  changes     Json?
+  created_at  DateTime @default(now())
 }
 
-model Event {
-  id                 String         @id @default(cuid())
-  title              String         @db.VarChar(1000)
-  description        String?        @db.Text
-  state              EventState     @default(draft)
-  liveDate           DateTime?      @map("live_date")
-  answerEndAt        DateTime       @map("answer_end_at")
-  settlementAt       DateTime       @map("settlement_at")
-  resolutionCriteria String         @map("resolution_criteria") @db.Text
-  topic              String?
-  agentId            String         @map("agent_id")
-  pushedTo           String[]       @default([]) @map("pushed_to")
-  reviewStatus       ReviewStatus?  @map("review_status")
-  outcome            Outcome?
-  answerCount        Int            @default(0) @map("answer_count")
-  type               String?        @default("binary")
-  poolTotal          Decimal        @default(0) @map("pool_total") @db.Decimal(15, 2)
-  poolYes            Decimal        @default(0) @map("pool_yes") @db.Decimal(15, 2)
-  poolNo             Decimal        @default(0) @map("pool_no") @db.Decimal(15, 2)
-  categories         String[]       @default([])
-  createdAt          DateTime       @default(now()) @map("created_at")
-  updatedAt          DateTime       @updatedAt @map("updated_at")
+model brand_profiles {
+  id                      String    @id
+  name                    String
+  brand_description       String?
+  website                 String?
+  industry                String?
+  target_audience         String?
+  brand_voice             String?
+  key_values              String[]  @default([])
+  logo_url                String?
+  primary_color           String    @default("#6366f1")
+  secondary_color         String    @default("#8b5cf6")
+  social_links            Json      @default("{\"twitter\": \"\", \"facebook\": \"\", \"linkedin\": \"\", \"instagram\": \"\"}")
+  meta_content            String[]  @default([])
+  google_drive_folder_ids String[]  @default([])
+  created_at              DateTime  @default(now())
+  updated_at              DateTime
+  corpora                 corpora[]
 
-  agent              Agent                    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  eventCategories    EventCategory[]
-  eventTags          EventTag[]
-  eventRiskFlags     EventRiskFlag[]
-  eventSources       EventSource[]
-  outcomeEvidence    OutcomeEvidence[]
-  answers            Answer[]
-  aiResolutionProposal AIResolutionProposal?
-  novaRatings        NovaRating[]
-
-  @@map("events")
+  @@index([created_at])
+  @@index([name])
 }
 
-model NovaRating {
-  id             Int      @id @default(autoincrement())
-  eventId        String   @map("event_id")
-  rating         String   @db.VarChar(1)
-  ratingCategory String   @map("rating_category") @db.VarChar(100)
-  confidence     Int?
-  sparkline      Int[]    @default([])
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+model categories {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique @db.VarChar(100)
+  created_at       DateTime           @default(now())
+  event_categories event_categories[]
+}
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+model chunks {
+  id          String                 @id
+  document_id String
+  chunk_index Int
+  content     String
+  token_count Int?
+  embedding   Unsupported("vector")?
+  metadata    Json?
+  created_at  DateTime               @default(now())
+  documents   documents              @relation(fields: [document_id], references: [id], onDelete: Cascade)
 
-  @@unique([eventId, ratingCategory])
-  @@map("nova_ratings")
-  @@index([eventId])
+  @@index([document_id, chunk_index])
+  @@index([document_id])
+}
+
+model connector_health {
+  id             String          @id
+  name           String
+  type           SourceType
+  last_run       DateTime?
+  status         ConnectorStatus @default(healthy)
+  items_ingested Int             @default(0)
+  failure_count  Int             @default(0)
+  created_at     DateTime        @default(now())
+  updated_at     DateTime
+}
+
+model corpora {
+  id                     String            @id
+  owner_user_id          String?
+  drive_source_id        String
+  name                   String            @db.VarChar(255)
+  description            String?
+  google_drive_folder_id String            @db.VarChar(255)
+  sync_status            String            @default("idle") @db.VarChar(50)
+  last_sync_at           DateTime?
+  last_sync_stats        Json?
+  sync_config            Json              @default("{\"recursive\": true}")
+  created_at             DateTime          @default(now())
+  updated_at             DateTime
+  brand_profile_id       String?
+  brand_profiles         brand_profiles?   @relation(fields: [brand_profile_id], references: [id])
+  drive_sources          drive_sources     @relation(fields: [drive_source_id], references: [id], onDelete: Cascade)
+  documents              documents[]
+  ingestion_jobs         ingestion_jobs[]
+  retrieval_audit        retrieval_audit[]
+
+  @@index([brand_profile_id])
+  @@index([drive_source_id])
+  @@index([owner_user_id])
+  @@index([sync_status])
+}
+
+model documents {
+  id                   String    @id
+  corpus_id            String
+  google_drive_file_id String    @db.VarChar(255)
+  file_name            String    @db.VarChar(500)
+  file_type            String?   @db.VarChar(100)
+  file_path            String?
+  file_size_bytes      BigInt?
+  drive_modified_at    DateTime?
+  content_hash         String?   @db.VarChar(64)
+  indexing_status      String    @default("pending") @db.VarChar(50)
+  indexing_error       String?
+  chunk_count          Int       @default(0)
+  created_at           DateTime  @default(now())
+  updated_at           DateTime
+  chunks               chunks[]
+  corpora              corpora   @relation(fields: [corpus_id], references: [id], onDelete: Cascade)
+
+  @@unique([corpus_id, google_drive_file_id])
+  @@index([corpus_id])
+  @@index([drive_modified_at])
+  @@index([google_drive_file_id])
+  @@index([indexing_status])
+}
+
+model drive_sources {
+  id                  String            @id
+  owner_user_id       String?
+  oauth_credential_id String
+  displayName         String            @db.VarChar(255)
+  googleAccountEmail  String?           @db.VarChar(255)
+  last_verified_at    DateTime?
+  status              String            @default("active") @db.VarChar(50)
+  created_at          DateTime          @default(now())
+  updated_at          DateTime
+  corpora             corpora[]
+  oauth_credentials   oauth_credentials @relation(fields: [oauth_credential_id], references: [id], onDelete: Cascade)
+
+  @@index([oauth_credential_id])
+  @@index([owner_user_id])
+}
+
+model event_categories {
+  event_id    String
+  category_id Int
+  categories  categories @relation(fields: [category_id], references: [id], onDelete: Cascade, map: "question_categories_category_id_fkey")
+  events      events     @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "question_categories_question_id_fkey")
+
+  @@id([event_id, category_id])
+}
+
+model event_risk_flags {
+  event_id     String
+  risk_flag_id Int
+  events       events     @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "question_risk_flags_question_id_fkey")
+  risk_flags   risk_flags @relation(fields: [risk_flag_id], references: [id], onDelete: Cascade, map: "question_risk_flags_risk_flag_id_fkey")
+
+  @@id([event_id, risk_flag_id])
+}
+
+model event_sources {
+  id         Int      @id @default(autoincrement())
+  event_id   String
+  source_id  String
+  created_at DateTime @default(now())
+  events     events   @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "question_sources_question_id_fkey")
+  sources    sources  @relation(fields: [source_id], references: [id], onDelete: Cascade, map: "question_sources_source_id_fkey")
+}
+
+model event_tags {
+  event_id String
+  tag_id   Int
+  events   events @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "question_tags_question_id_fkey")
+  tags     tags   @relation(fields: [tag_id], references: [id], onDelete: Cascade, map: "question_tags_tag_id_fkey")
+
+  @@id([event_id, tag_id])
+}
+
+model events {
+  id                      String                   @id(map: "questions_pkey")
+  title                   String                   @db.VarChar(1000)
+  description             String?
+  state                   QuestionState            @default(draft)
+  live_date               DateTime?
+  answer_end_at           DateTime
+  settlement_at           DateTime
+  resolution_criteria     String
+  topic                   String?
+  agent_id                String
+  pushed_to               String[]                 @default([])
+  review_status           ReviewStatus?
+  outcome                 Outcome?
+  answer_count            Int                      @default(0)
+  type                    String?                  @default("binary")
+  pool_total              Decimal                  @default(0) @db.Decimal(15, 2)
+  pool_yes                Decimal                  @default(0) @db.Decimal(15, 2)
+  pool_no                 Decimal                  @default(0) @db.Decimal(15, 2)
+  categories              String[]                 @default([])
+  created_at              DateTime                 @default(now())
+  updated_at              DateTime
+  ai_resolution_proposals ai_resolution_proposals?
+  answers                 answers[]
+  event_categories        event_categories[]
+  event_risk_flags        event_risk_flags[]
+  event_sources           event_sources[]
+  event_tags              event_tags[]
+  agents                  agents                   @relation(fields: [agent_id], references: [id], onDelete: Cascade, map: "questions_agent_id_fkey")
+  nova_ratings            nova_ratings[]
+  outcome_evidence        outcome_evidence[]
+}
+
+model ingestion_jobs {
+  id            String    @id
+  corpus_id     String
+  status        String    @default("pending") @db.VarChar(50)
+  started_at    DateTime?
+  completed_at  DateTime?
+  progress      Json      @default("{\"stage\": \"initializing\", \"total\": 0, \"current\": 0}")
+  stats         Json?
+  error_message String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime
+  corpora       corpora   @relation(fields: [corpus_id], references: [id], onDelete: Cascade)
+
+  @@index([corpus_id])
+  @@index([created_at])
+  @@index([status])
+}
+
+model kpi_stats {
+  id                Int      @id @default(autoincrement())
+  label             String
+  value_numeric     Decimal? @db.Decimal(15, 2)
+  value_text        String?  @db.VarChar(500)
+  change_percentage Decimal? @db.Decimal(5, 2)
+  trend             Trend    @default(neutral)
+  date_recorded     DateTime @db.Date
+  created_at        DateTime @default(now())
+}
+
+model nova_ratings {
+  id              Int      @id @default(autoincrement())
+  event_id        String
+  rating          String   @db.VarChar(1)
+  rating_category String   @db.VarChar(100)
+  confidence      Int?
+  sparkline       Int[]    @default([])
+  created_at      DateTime @default(now())
+  updated_at      DateTime
+  events          events   @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "nova_ratings_question_id_fkey")
+
+  @@unique([event_id, rating_category], map: "nova_ratings_question_id_rating_category_key")
+  @@index([event_id], map: "nova_ratings_question_id_idx")
   @@index([rating])
 }
 
-// ProposedEvent model removed - consolidated into Event model with 'pending', 'approved', 'rejected' states
+model oauth_credentials {
+  id                      String          @id
+  owner_user_id           String?
+  provider                String          @db.VarChar(50)
+  encrypted_access_token  String
+  encrypted_refresh_token String?
+  token_expires_at        DateTime?
+  scope                   String[]        @default([])
+  created_at              DateTime        @default(now())
+  updated_at              DateTime
+  drive_sources           drive_sources[]
 
-model AIResolutionProposal {
-  id              String                   @id @default(cuid())
-  eventId         String                   @unique @map("event_id")
-  resolution      Outcome
-  confidenceScore Decimal                  @map("confidence_score") @db.Decimal(5, 4)
-  reasoning       String                   @db.Text
-  evidence        Json?
-  status          ResolutionProposalStatus @default(pending)
-  createdBy       String                   @default("AI") @map("created_by")
-  reviewedBy      String?                  @map("reviewed_by")
-  reviewedAt      DateTime?                @map("reviewed_at")
-  createdAt       DateTime                 @default(now()) @map("created_at")
-  updatedAt       DateTime                 @updatedAt @map("updated_at")
-
-  event    Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  reviewer User? @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
-
-  @@map("ai_resolution_proposals")
-}
-
-model Agent {
-  id               String          @id @default(cuid())
-  name             String
-  description      String?         @db.Text
-  categories       String[]        @default([])
-  eventPrompt      String          @map("event_prompt") @db.Text
-  resolutionPrompt String?         @map("resolution_prompt") @db.Text
-  baseModel        String          @default("chatgpt-4o-latest") @map("base_model") @db.VarChar(100)
-  frequency        AgentFrequency  @default(daily)
-  status           AgentStatus     @default(active)
-  eventsCreated    Int             @default(0) @map("events_created")
-  lastRun          DateTime?       @map("last_run")
-  nextRun          DateTime?       @map("next_run")
-  isTemplate       Boolean         @default(false) @map("is_template")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
-
-  agentSources AgentSource[]
-  events       Event[]
-
-  @@map("agents")
-}
-
-model AgentSource {
-  id                Int             @id @default(autoincrement())
-  agentId           String          @map("agent_id")
-  type              AgentSourceType
-  configUrl         String?         @map("config_url") @db.Text
-  configSubreddit   String?         @map("config_subreddit")
-  configApiEndpoint String?         @map("config_api_endpoint") @db.Text
-  configFeedUrl     String?         @map("config_feed_url") @db.Text
-  createdAt         DateTime        @default(now()) @map("created_at")
-
-  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  @@map("agent_sources")
-}
-
-model Answer {
-  id         String   @id @default(cuid())
-  eventId    String   @map("event_id")
-  eventTitle String   @map("event_title") @db.VarChar(1000)
-  userId     String   @map("user_id")
-  userName   String   @map("user_name")
-  choice     Choice
-  confidence Decimal  @default(0.50) @db.Decimal(3, 2)
-  channel    String   @default("web") @db.VarChar(50)
-  placedAt   DateTime @default(now()) @map("placed_at")
-
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("answers")
-}
-
-model OutcomeEvidence {
-  id           Int          @id @default(autoincrement())
-  eventId      String       @map("event_id")
-  evidence     String       @db.Text
-  evidenceType EvidenceType @default(text) @map("evidence_type")
-  createdAt    DateTime     @default(now()) @map("created_at")
-
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@map("outcome_evidence")
-}
-
-model ConnectorHealth {
-  id            String            @id @default(cuid())
-  name          String
-  type          SourceType
-  lastRun       DateTime?         @map("last_run")
-  status        ConnectorStatus   @default(healthy)
-  itemsIngested Int               @default(0) @map("items_ingested")
-  failureCount  Int               @default(0) @map("failure_count")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-
-  @@map("connector_health")
-}
-
-model AuditEvent {
-  id         String   @id @default(cuid())
-  timestamp  DateTime @default(now())
-  actor      String
-  action     String
-  entityType String   @map("entity_type") @db.VarChar(100)
-  entityId   String   @map("entity_id")
-  changes    Json?
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  @@map("audit_events")
-}
-
-model KpiStat {
-  id               Int      @id @default(autoincrement())
-  label            String
-  valueNumeric     Decimal? @map("value_numeric") @db.Decimal(15, 2)
-  valueText        String?  @map("value_text") @db.VarChar(500)
-  changePercentage Decimal? @map("change_percentage") @db.Decimal(5, 2)
-  trend            Trend    @default(neutral)
-  dateRecorded     DateTime @map("date_recorded") @db.Date
-  createdAt        DateTime @default(now()) @map("created_at")
-
-  @@map("kpi_stats")
-}
-
-// Junction tables
-model EventCategory {
-  eventId    String @map("event_id")
-  categoryId Int    @map("category_id")
-
-  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([eventId, categoryId])
-  @@map("event_categories")
-}
-
-model EventTag {
-  eventId String @map("event_id")
-  tagId   Int    @map("tag_id")
-
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([eventId, tagId])
-  @@map("event_tags")
-}
-
-model EventSource {
-  id        Int      @id @default(autoincrement())
-  eventId   String   @map("event_id")
-  sourceId  String   @map("source_id")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-
-  @@map("event_sources")
-}
-
-// ProposedEventCategory, ProposedEventSource, and ProposedEventRiskFlag models removed - use Event relations instead
-
-model EventRiskFlag {
-  eventId    String @map("event_id")
-  riskFlagId Int    @map("risk_flag_id")
-
-  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  riskFlag RiskFlag @relation(fields: [riskFlagId], references: [id], onDelete: Cascade)
-
-  @@id([eventId, riskFlagId])
-  @@map("event_risk_flags")
-}
-
-model BrandProfile {
-  id                   String   @id @default(cuid())
-  name                 String
-  brandDescription     String?  @map("brand_description") @db.Text
-  website              String?
-  industry             String?
-  targetAudience       String?  @map("target_audience")
-  brandVoice           String?  @map("brand_voice") @db.Text
-  keyValues            String[] @default([]) @map("key_values")
-  logoUrl              String?  @map("logo_url")
-  primaryColor         String   @default("#6366f1") @map("primary_color")
-  secondaryColor       String   @default("#8b5cf6") @map("secondary_color")
-  socialLinks          Json     @default("{\"twitter\": \"\", \"linkedin\": \"\", \"facebook\": \"\", \"instagram\": \"\"}") @map("social_links")
-  metaContent          String[] @default([]) @map("meta_content")
-  googleDriveFolderIds String[] @default([]) @map("google_drive_folder_ids")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-
-  corpora Corpus[]
-
-  @@map("brand_profiles")
-  @@index([name])
-  @@index([createdAt])
-}
-
-// Knowledge Corpus Models for RAG
-
-model OAuthCredential {
-  id                      String   @id @default(cuid())
-  ownerUserId             String?  @map("owner_user_id")
-  provider                String   @db.VarChar(50)
-  encryptedAccessToken    String   @map("encrypted_access_token") @db.Text
-  encryptedRefreshToken   String?  @map("encrypted_refresh_token") @db.Text
-  tokenExpiresAt          DateTime? @map("token_expires_at")
-  scope                   String[] @default([])
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
-
-  driveSources DriveSource[]
-
-  @@map("oauth_credentials")
-  @@index([ownerUserId])
+  @@index([owner_user_id])
   @@index([provider])
 }
 
-model DriveSource {
-  id                  String   @id @default(cuid())
-  ownerUserId         String?  @map("owner_user_id")
-  oauthCredentialId   String   @map("oauth_credential_id")
-  displayName         String   @db.VarChar(255)
-  googleAccountEmail  String?  @db.VarChar(255)
-  lastVerifiedAt      DateTime? @map("last_verified_at")
-  status              String   @default("active") @db.VarChar(50)
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-
-  oauthCredential OAuthCredential @relation(fields: [oauthCredentialId], references: [id], onDelete: Cascade)
-  corpora         Corpus[]
-
-  @@map("drive_sources")
-  @@index([ownerUserId])
-  @@index([oauthCredentialId])
+model outcome_evidence {
+  id            Int          @id @default(autoincrement())
+  event_id      String
+  evidence      String
+  evidence_type EvidenceType @default(text)
+  created_at    DateTime     @default(now())
+  events        events       @relation(fields: [event_id], references: [id], onDelete: Cascade, map: "outcome_evidence_question_id_fkey")
 }
 
-model Corpus {
-  id                    String   @id @default(cuid())
-  ownerUserId           String?  @map("owner_user_id")
-  brandProfileId        String?  @map("brand_profile_id")
-  driveSourceId         String   @map("drive_source_id")
-  name                  String   @db.VarChar(255)
-  description           String?  @db.Text
-  googleDriveFolderId   String   @map("google_drive_folder_id") @db.VarChar(255)
-  syncStatus            String   @default("idle") @map("sync_status") @db.VarChar(50)
-  lastSyncAt            DateTime? @map("last_sync_at")
-  lastSyncStats         Json?    @map("last_sync_stats")
-  syncConfig            Json     @default("{\"recursive\": true}") @map("sync_config")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+model retrieval_audit {
+  id         String   @id
+  corpus_id  String
+  query_text String
+  top_k      Int      @default(5)
+  results    Json?
+  latency_ms Int?
+  created_at DateTime @default(now())
+  corpora    corpora  @relation(fields: [corpus_id], references: [id], onDelete: Cascade)
 
-  driveSource     DriveSource      @relation(fields: [driveSourceId], references: [id], onDelete: Cascade)
-  brandProfile    BrandProfile?    @relation(fields: [brandProfileId], references: [id], onDelete: SetNull)
-  documents       Document[]
-  ingestionJobs   IngestionJob[]
-  retrievalAudits RetrievalAudit[]
-
-  @@map("corpora")
-  @@index([ownerUserId])
-  @@index([brandProfileId])
-  @@index([driveSourceId])
-  @@index([syncStatus])
+  @@index([corpus_id])
+  @@index([created_at])
 }
 
-model Document {
-  id                String   @id @default(cuid())
-  corpusId          String   @map("corpus_id")
-  googleDriveFileId String   @map("google_drive_file_id") @db.VarChar(255)
-  fileName          String   @map("file_name") @db.VarChar(500)
-  fileType          String?  @map("file_type") @db.VarChar(100)
-  filePath          String?  @map("file_path") @db.Text
-  fileSizeBytes     BigInt?  @map("file_size_bytes")
-  driveModifiedAt   DateTime? @map("drive_modified_at")
-  contentHash       String?  @map("content_hash") @db.VarChar(64)
-  indexingStatus    String   @default("pending") @map("indexing_status") @db.VarChar(50)
-  indexingError     String?  @map("indexing_error") @db.Text
-  chunkCount        Int      @default(0) @map("chunk_count")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-
-  corpus Corpus  @relation(fields: [corpusId], references: [id], onDelete: Cascade)
-  chunks Chunk[]
-
-  @@unique([corpusId, googleDriveFileId])
-  @@map("documents")
-  @@index([corpusId])
-  @@index([googleDriveFileId])
-  @@index([indexingStatus])
-  @@index([driveModifiedAt])
+model risk_flags {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique @db.VarChar(100)
+  description      String?
+  severity         RiskSeverity       @default(medium)
+  created_at       DateTime           @default(now())
+  event_risk_flags event_risk_flags[]
 }
 
-// Chunk model with pgvector embeddings
-// Using Unsupported type for vector(1536) - requires pgvector extension
-model Chunk {
-  id          String   @id @default(cuid())
-  documentId  String   @map("document_id")
-  chunkIndex  Int      @map("chunk_index")
-  content     String   @db.Text
-  tokenCount  Int?     @map("token_count")
-  embedding   Unsupported("vector(1536)")?
-  metadata    Json?
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@map("chunks")
-  @@index([documentId])
-  @@index([documentId, chunkIndex])
+model sources {
+  id            String          @id
+  type          SourceType
+  url           String
+  title         String          @db.VarChar(500)
+  outlet        String?
+  trust_level   TrustLevel?
+  fetched_at    DateTime
+  content       String?
+  is_pinned     Boolean         @default(false)
+  created_at    DateTime        @default(now())
+  event_sources event_sources[]
 }
 
-model IngestionJob {
-  id            String   @id @default(cuid())
-  corpusId      String   @map("corpus_id")
-  status        String   @default("pending") @db.VarChar(50)
-  startedAt     DateTime? @map("started_at")
-  completedAt   DateTime? @map("completed_at")
-  progress      Json     @default("{\"stage\": \"initializing\", \"current\": 0, \"total\": 0}") @map("progress")
-  stats         Json?    @map("stats")
-  errorMessage  String?  @map("error_message") @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  corpus Corpus @relation(fields: [corpusId], references: [id], onDelete: Cascade)
-
-  @@map("ingestion_jobs")
-  @@index([corpusId])
-  @@index([status])
-  @@index([createdAt])
+model tags {
+  id         Int          @id @default(autoincrement())
+  name       String       @unique @db.VarChar(100)
+  created_at DateTime     @default(now())
+  event_tags event_tags[]
 }
 
-model RetrievalAudit {
-  id            String   @id @default(cuid())
-  corpusId      String   @map("corpus_id")
-  queryText     String   @map("query_text") @db.Text
-  topK          Int      @default(5) @map("top_k")
-  results       Json?    @map("results")
-  latencyMs     Int?     @map("latency_ms")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  corpus Corpus @relation(fields: [corpusId], references: [id], onDelete: Cascade)
-
-  @@map("retrieval_audit")
-  @@index([corpusId])
-  @@index([createdAt])
+model users {
+  id                      String                    @id
+  name                    String
+  email                   String?                   @unique
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime
+  ai_resolution_proposals ai_resolution_proposals[]
+  answers                 answers[]
 }
 
-// Enums
-enum SourceType {
-  twitter
-  news
-  meme
+enum AgentFrequency {
+  daily
+  on_update
+  weekly
 }
 
-enum TrustLevel {
-  high
-  medium
-  low
+enum AgentSourceType {
+  website
+  api
+  x
+  reddit
+  feed
+}
+
+enum AgentStatus {
+  active
+  paused
+  error
+}
+
+enum Choice {
+  YES
+  NO
+}
+
+enum ClerkDocumentStatus {
+  uploaded
+  detecting
+  completed
+  error
+  filling
+}
+
+enum ConnectorStatus {
+  healthy
+  warning
+  error
 }
 
 enum EventState {
@@ -504,46 +452,9 @@ enum EventState {
   paused
 }
 
-enum ReviewStatus {
-  pending
-  approved
-  revision_requested
-}
-
-enum Outcome {
-  YES
-  NO
-  INVALID
-}
-
 enum EventType {
   binary
   multi_option @map("multi-option")
-}
-
-enum AgentSourceType {
-  website
-  api
-  x
-  reddit
-  feed
-}
-
-enum AgentFrequency {
-  daily
-  on_update
-  weekly
-}
-
-enum AgentStatus {
-  active
-  paused
-  error
-}
-
-enum Choice {
-  YES
-  NO
 }
 
 enum EvidenceType {
@@ -552,10 +463,42 @@ enum EvidenceType {
   document
 }
 
-enum ConnectorStatus {
-  healthy
-  warning
-  error
+enum Outcome {
+  YES
+  NO
+  INVALID
+}
+
+enum QuestionState {
+  pending
+  approved
+  rejected
+  draft
+  awaiting_review
+  published
+  answering_closed
+  awaiting_resolution
+  resolved
+  invalid
+  paused
+}
+
+enum QuestionType {
+  binary
+  multi_option @map("multi-option")
+}
+
+enum ResolutionProposalStatus {
+  pending
+  approved
+  rejected
+  under_review
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  revision_requested
 }
 
 enum RiskSeverity {
@@ -565,15 +508,39 @@ enum RiskSeverity {
   critical
 }
 
+enum SourceType {
+  twitter
+  news
+  meme
+}
+
 enum Trend {
   up
   down
   neutral
 }
 
-enum ResolutionProposalStatus {
-  pending
-  approved
-  rejected
-  under_review
+enum TrustLevel {
+  high
+  medium
+  low
+}
+
+model clerk_documents {
+  id              String               @id
+  file_name       String               @db.VarChar(500)
+  file_size       BigInt
+  r2_url          String
+  status          ClerkDocumentStatus  @default(uploaded)
+  fields_detected Boolean              @default(false)
+  detected_fields Json?
+  total_pages     Int?
+  filled_url      String?
+  uploaded_at     DateTime             @default(now())
+  processed_at    DateTime?
+  created_at      DateTime             @default(now())
+  updated_at      DateTime
+
+  @@index([uploaded_at])
+  @@index([status])
 }

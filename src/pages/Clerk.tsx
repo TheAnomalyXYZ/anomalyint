@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
 
 interface FillableField {
   type: string;
@@ -31,6 +32,44 @@ interface UploadedFile {
 export function Clerk() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch previously uploaded files on component mount
+  useEffect(() => {
+    async function fetchFiles() {
+      try {
+        const { data, error } = await supabase
+          .from('clerk_documents')
+          .select('*')
+          .order('uploaded_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Transform database records to UploadedFile format
+        const loadedFiles: UploadedFile[] = (data || []).map(doc => ({
+          id: doc.id,
+          name: doc.file_name,
+          size: Number(doc.file_size),
+          uploadedAt: new Date(doc.uploaded_at),
+          url: doc.r2_url,
+          status: doc.status as UploadedFile['status'],
+          fieldsDetected: doc.fields_detected,
+          detectedFields: doc.detected_fields,
+          totalPages: doc.total_pages,
+          filledUrl: doc.filled_url || undefined,
+        }));
+
+        setFiles(loadedFiles);
+      } catch (error) {
+        console.error('Error fetching files:', error);
+        toast.error('Failed to load previous uploads');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchFiles();
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -95,6 +134,23 @@ export function Clerk() {
 
         const data = await response.json();
 
+        // Save to database
+        const { error: dbError } = await supabase
+          .from('clerk_documents')
+          .insert({
+            id: fileId,
+            file_name: file.name,
+            file_size: file.size,
+            r2_url: data.url,
+            status: 'uploaded',
+            fields_detected: false,
+          });
+
+        if (dbError) {
+          console.error('Database error:', dbError);
+          throw new Error('Failed to save file metadata');
+        }
+
         // Update file status
         setFiles((prev) =>
           prev.map((f) =>
@@ -140,6 +196,22 @@ export function Clerk() {
       }
 
       const data = await response.json();
+
+      // Update database with detected fields
+      const { error: dbError } = await supabase
+        .from('clerk_documents')
+        .update({
+          status: 'completed',
+          fields_detected: true,
+          detected_fields: data.fields || [],
+          total_pages: data.totalPages || 0,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', fileId);
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+      }
 
       // Update file status with detected fields
       setFiles((prev) =>
@@ -233,7 +305,16 @@ export function Clerk() {
       </Card>
 
       {/* Uploaded Files List */}
-      {files.length > 0 && (
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading previous uploads...</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : files.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Uploaded Documents</CardTitle>
@@ -321,7 +402,7 @@ export function Clerk() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }
