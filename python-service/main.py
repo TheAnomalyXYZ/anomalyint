@@ -180,16 +180,16 @@ def detect_horizontal_lines(image: np.ndarray) -> List[Dict[str, Any]]:
     # Reduced Canny thresholds to detect fainter lines
     edges = cv2.Canny(gray, 100, 200, apertureSize=3)
 
-    # Detect lines using HoughLinesP with stricter parameters to avoid text edges
-    # Higher threshold and smaller maxLineGap to only detect solid, continuous lines
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=200, minLineLength=100, maxLineGap=5)
+    # Detect lines using HoughLinesP
+    # Reduced threshold to detect fainter lines, increased maxLineGap for broken lines
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
 
     horizontal_lines = []
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            # Check if line is roughly horizontal (small y difference)
-            if abs(y2 - y1) < 10 and abs(x2 - x1) > 20:
+            # Check if line is roughly horizontal (small y difference) and longer than typical words
+            if abs(y2 - y1) < 10 and abs(x2 - x1) > 50:
                 horizontal_lines.append({
                     "type": "line",
                     "x": int(min(x1, x2)),
