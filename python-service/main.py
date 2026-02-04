@@ -187,7 +187,7 @@ def detect_horizontal_lines(image: np.ndarray) -> List[Dict[str, Any]]:
         for line in lines:
             x1, y1, x2, y2 = line[0]
             # Check if line is roughly horizontal (small y difference)
-            if abs(y2 - y1) < 10 and abs(x2 - x1) > 100:
+            if abs(y2 - y1) < 10 and abs(x2 - x1) > 200:
                 horizontal_lines.append({
                     "type": "line",
                     "x": int(min(x1, x2)),
