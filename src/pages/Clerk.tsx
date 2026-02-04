@@ -135,6 +135,7 @@ export function Clerk() {
         const data = await response.json();
 
         // Save to database
+        const now = new Date().toISOString();
         const { error: dbError } = await supabase
           .from('clerk_documents')
           .insert({
@@ -144,6 +145,9 @@ export function Clerk() {
             r2_url: data.url,
             status: 'uploaded',
             fields_detected: false,
+            uploaded_at: now,
+            created_at: now,
+            updated_at: now,
           });
 
         if (dbError) {
@@ -198,6 +202,7 @@ export function Clerk() {
       const data = await response.json();
 
       // Update database with detected fields
+      const now = new Date().toISOString();
       const { error: dbError } = await supabase
         .from('clerk_documents')
         .update({
@@ -205,7 +210,8 @@ export function Clerk() {
           fields_detected: true,
           detected_fields: data.fields || [],
           total_pages: data.totalPages || 0,
-          processed_at: new Date().toISOString(),
+          processed_at: now,
+          updated_at: now,
         })
         .eq('id', fileId);
 
