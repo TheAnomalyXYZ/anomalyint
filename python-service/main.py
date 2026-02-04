@@ -420,9 +420,13 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                 page = pdf_document[page_num]
                 page_fields = fields_by_page.get(page_num + 1, [])
 
+                # Check for page rotation
+                page_rotation = page.rotation
+                print(f"[annotate-pdf] Page {page_num + 1} rotation: {page_rotation} degrees")
+
                 # Calculate actual scale factor used during detection
                 # Detection uses: pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-                # Get actual page dimensions
+                # Get actual page dimensions (unrotated)
                 page_rect = page.rect
                 page_width = page_rect.width
                 page_height = page_rect.height
