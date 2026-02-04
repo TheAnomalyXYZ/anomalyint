@@ -381,26 +381,27 @@ export function Clerk() {
                       </div>
                     )}
 
-                    {file.status === 'completed' && !file.fieldsDetected && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDetectFields(file.id, file.url)}
-                      >
-                        Detect Form Fields
-                      </Button>
-                    )}
-
-                    {file.status === 'completed' && file.fieldsDetected && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => {
-                          toast.info('AI form filling coming in next iteration!');
-                        }}
-                      >
-                        Fill with AI
-                      </Button>
+                    {file.status === 'completed' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDetectFields(file.id, file.url)}
+                        >
+                          {file.fieldsDetected ? 'Re-detect Fields' : 'Detect Form Fields'}
+                        </Button>
+                        {file.fieldsDetected && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              toast.info('AI form filling coming in next iteration!');
+                            }}
+                          >
+                            Fill with AI
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
