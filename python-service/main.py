@@ -488,13 +488,12 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                     text_rect = fitz.Rect(x, label_y - 10, x + 200, label_y + 2)
                     page.draw_rect(text_rect, color=(1, 1, 1), fill=(1, 1, 1))
 
-                    # Draw text with 180 degree rotation
+                    # Draw text (no rotation)
                     page.insert_text(
                         fitz.Point(x, label_y),
                         label,
                         fontsize=8,
-                        color=red,
-                        rotate=180
+                        color=red
                     )
 
             # Save annotated PDF
