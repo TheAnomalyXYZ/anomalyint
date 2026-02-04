@@ -454,7 +454,7 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                     y = page_height - image_y - height
 
                     # Draw X marker
-                    # Red color for the X
+                    # Red color with transparency (0.7 = 70% opacity)
                     red = (1, 0, 0)
 
                     # Draw X from top-left to bottom-right
@@ -462,19 +462,21 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                         fitz.Point(x, y),
                         fitz.Point(x + width, y + height),
                         color=red,
-                        width=2
+                        width=2,
+                        opacity=0.7
                     )
                     # Draw X from top-right to bottom-left
                     page.draw_line(
                         fitz.Point(x + width, y),
                         fitz.Point(x, y + height),
                         color=red,
-                        width=2
+                        width=2,
+                        opacity=0.7
                     )
 
-                    # Draw bounding box
+                    # Draw bounding box with transparency
                     rect = fitz.Rect(x, y, x + width, y + height)
-                    page.draw_rect(rect, color=red, width=1)
+                    page.draw_rect(rect, color=red, width=1, opacity=0.7)
 
                     # Add label with type and coordinates
                     label = f"{field['type']}: ({field['x']},{field['y']})"
@@ -484,17 +486,18 @@ async def annotate_pdf(request: AnnotatePdfRequest):
                     if label_y < 0:
                         label_y = y + height + 12
 
-                    # Draw white background for text
+                    # Draw semi-transparent white background for text
                     text_rect = fitz.Rect(x, label_y - 10, x + 200, label_y + 2)
-                    page.draw_rect(text_rect, color=(1, 1, 1), fill=(1, 1, 1))
+                    page.draw_rect(text_rect, color=(1, 1, 1), fill=(1, 1, 1), fill_opacity=0.8)
 
-                    # Draw text with 180 degree rotation to fix upside-down rendering
+                    # Draw text with 180 degree rotation and transparency
                     page.insert_text(
                         fitz.Point(x, label_y),
                         label,
                         fontsize=8,
                         color=red,
-                        rotate=180
+                        rotate=180,
+                        fill_opacity=0.9
                     )
 
             # Save annotated PDF
