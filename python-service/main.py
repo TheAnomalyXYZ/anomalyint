@@ -180,8 +180,9 @@ def detect_horizontal_lines(image: np.ndarray) -> List[Dict[str, Any]]:
     # Higher thresholds to avoid detecting text edges as lines
     edges = cv2.Canny(gray, 150, 250, apertureSize=3)
 
-    # Detect lines using HoughLinesP
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
+    # Detect lines using HoughLinesP with stricter parameters to avoid text edges
+    # Higher threshold and smaller maxLineGap to only detect solid, continuous lines
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=200, minLineLength=100, maxLineGap=5)
 
     horizontal_lines = []
     if lines is not None:
