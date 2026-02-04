@@ -22,9 +22,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Make start script executable and fix line endings
-RUN chmod +x start.sh && \
-    sed -i 's/\r$//' start.sh
-
-# Use start script to handle PORT env var
-CMD ["bash", "./start.sh"]
+# Python will handle PORT env var conversion in main.py
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
