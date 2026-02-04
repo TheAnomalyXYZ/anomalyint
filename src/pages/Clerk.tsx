@@ -22,7 +22,7 @@ interface UploadedFile {
   size: number;
   uploadedAt: Date;
   url: string;
-  status: 'uploading' | 'completed' | 'error' | 'detecting' | 'filling';
+  status: 'uploading' | 'uploaded' | 'completed' | 'error' | 'detecting' | 'filling';
   fieldsDetected?: boolean;
   filledUrl?: string;
   detectedFields?: FillableField[];
@@ -381,7 +381,7 @@ export function Clerk() {
                       </div>
                     )}
 
-                    {file.status === 'completed' && (
+                    {(file.status === 'completed' || file.status === 'uploaded') && (
                       <>
                         <Button
                           variant="outline"
