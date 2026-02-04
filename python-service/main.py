@@ -177,7 +177,8 @@ def detect_horizontal_lines(image: np.ndarray) -> List[Dict[str, Any]]:
     Detect horizontal lines that could be fillable underscores
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+    # Higher thresholds to avoid detecting text edges as lines
+    edges = cv2.Canny(gray, 150, 250, apertureSize=3)
 
     # Detect lines using HoughLinesP
     lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
