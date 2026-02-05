@@ -743,8 +743,39 @@ export function Clerk() {
     const formattedLines = file.lineFields ? formatLineFields(file.lineFields) : '';
 
     try {
-      const corpusContext = selectedCorpusId && selectedCorpusId !== 'none'
-        ? `\n\nYou have access to a knowledge base. Use it to provide accurate, context-aware responses when filling forms or answering questions about the document.`
+      // Retrieve relevant chunks from knowledge corpus if selected
+      let knowledgeContext = '';
+      if (selectedCorpusId && selectedCorpusId !== 'none') {
+        try {
+          const retrievalResponse = await fetch('/api/retrieve-chunks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: formattedText.substring(0, 2000), // Use first part of document as query
+              corpus_id: selectedCorpusId,
+              match_count: 5,
+              match_threshold: 0.7,
+            }),
+          });
+
+          if (retrievalResponse.ok) {
+            const retrievalData = await retrievalResponse.json();
+            if (retrievalData.chunks && retrievalData.chunks.length > 0) {
+              knowledgeContext = '\n\n## Knowledge Base Context:\n' +
+                retrievalData.chunks.map((chunk: any, idx: number) =>
+                  `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
+                ).join('\n\n');
+              console.log(`Retrieved ${retrievalData.chunks.length} relevant chunks from corpus`);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to retrieve chunks:', error);
+          // Continue without knowledge context
+        }
+      }
+
+      const corpusContext = knowledgeContext
+        ? `\n\nYou have access to a knowledge base with relevant information. Use the knowledge base context provided to give accurate, informed responses when filling forms or answering questions about the document.`
         : '';
 
       const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates${file.lineFields ? ', and detected fillable line fields' : ''}.${corpusContext}
@@ -762,6 +793,10 @@ Be conversational, helpful, and concise.`;
 
       if (formattedLines) {
         userPrompt += `\n\n## Fillable Line Fields:\n${formattedLines}`;
+      }
+
+      if (knowledgeContext) {
+        userPrompt += knowledgeContext;
       }
 
       userPrompt += `\n\nGive me a summary of what this document is and what fields need to be filled.`;
@@ -873,13 +908,47 @@ Be conversational, helpful, and concise.`;
       const formattedText = currentFile.textElements ? formatTextElements(currentFile.textElements) : '';
       const formattedLines = currentFile.lineFields ? formatLineFields(currentFile.lineFields) : '';
 
-      const corpusContext = selectedCorpusId && selectedCorpusId !== 'none'
-        ? `\n\nYou have access to a knowledge base. Use it to provide accurate, context-aware responses when filling forms or answering questions about the document.`
+      // Retrieve relevant chunks from knowledge corpus if selected
+      let knowledgeContext = '';
+      if (selectedCorpusId && selectedCorpusId !== 'none') {
+        try {
+          const retrievalResponse = await fetch('/api/retrieve-chunks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: userMessage,
+              corpus_id: selectedCorpusId,
+              match_count: 5,
+              match_threshold: 0.7,
+            }),
+          });
+
+          if (retrievalResponse.ok) {
+            const retrievalData = await retrievalResponse.json();
+            if (retrievalData.chunks && retrievalData.chunks.length > 0) {
+              knowledgeContext = '\n\n## Knowledge Base Context:\n' +
+                retrievalData.chunks.map((chunk: any, idx: number) =>
+                  `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
+                ).join('\n\n');
+              console.log(`Retrieved ${retrievalData.chunks.length} relevant chunks for user query`);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to retrieve chunks:', error);
+          // Continue without knowledge context
+        }
+      }
+
+      const corpusContext = knowledgeContext
+        ? `\n\nYou have access to a knowledge base with relevant information. Use the knowledge base context provided to give accurate, informed responses when filling forms or answering questions about the document.`
         : '';
 
       let documentContext = `## Text Elements:\n${formattedText}`;
       if (formattedLines) {
         documentContext += `\n\n## Fillable Line Fields:\n${formattedLines}`;
+      }
+      if (knowledgeContext) {
+        documentContext += knowledgeContext;
       }
 
       const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have access to the following document information:
