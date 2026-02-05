@@ -747,29 +747,40 @@ export function Clerk() {
       let knowledgeContext = '';
       if (selectedCorpusId && selectedCorpusId !== 'none') {
         try {
+          console.log(`[Clerk] Retrieving chunks from corpus: ${selectedCorpusId}`);
           const retrievalResponse = await fetch('/api/retrieve-chunks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               query: formattedText.substring(0, 2000), // Use first part of document as query
               corpus_id: selectedCorpusId,
-              match_count: 5,
-              match_threshold: 0.7,
+              match_count: 10,
+              match_threshold: 0.5, // Lowered threshold for more results
             }),
           });
 
           if (retrievalResponse.ok) {
             const retrievalData = await retrievalResponse.json();
+            console.log(`[Clerk] Retrieval response:`, retrievalData);
             if (retrievalData.chunks && retrievalData.chunks.length > 0) {
               knowledgeContext = '\n\n## Knowledge Base Context:\n' +
                 retrievalData.chunks.map((chunk: any, idx: number) =>
                   `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
                 ).join('\n\n');
-              console.log(`Retrieved ${retrievalData.chunks.length} relevant chunks from corpus`);
+              console.log(`[Clerk] Retrieved ${retrievalData.chunks.length} relevant chunks from corpus`);
+              toast.success(`Found ${retrievalData.chunks.length} relevant documents`);
+            } else {
+              console.warn(`[Clerk] No chunks found in corpus`);
+              toast.info('No relevant documents found in knowledge base');
             }
+          } else {
+            const errorData = await retrievalResponse.json();
+            console.error('[Clerk] Retrieval failed:', errorData);
+            toast.error('Failed to retrieve knowledge base: ' + errorData.message);
           }
         } catch (error) {
-          console.error('Failed to retrieve chunks:', error);
+          console.error('[Clerk] Failed to retrieve chunks:', error);
+          toast.error('Error accessing knowledge base');
           // Continue without knowledge context
         }
       }
@@ -912,29 +923,36 @@ Be conversational, helpful, and concise.`;
       let knowledgeContext = '';
       if (selectedCorpusId && selectedCorpusId !== 'none') {
         try {
+          console.log(`[Clerk] Retrieving chunks for query: "${userMessage}"`);
           const retrievalResponse = await fetch('/api/retrieve-chunks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               query: userMessage,
               corpus_id: selectedCorpusId,
-              match_count: 5,
-              match_threshold: 0.7,
+              match_count: 10,
+              match_threshold: 0.5, // Lowered threshold for more results
             }),
           });
 
           if (retrievalResponse.ok) {
             const retrievalData = await retrievalResponse.json();
+            console.log(`[Clerk] Query retrieval response:`, retrievalData);
             if (retrievalData.chunks && retrievalData.chunks.length > 0) {
               knowledgeContext = '\n\n## Knowledge Base Context:\n' +
                 retrievalData.chunks.map((chunk: any, idx: number) =>
                   `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
                 ).join('\n\n');
-              console.log(`Retrieved ${retrievalData.chunks.length} relevant chunks for user query`);
+              console.log(`[Clerk] Retrieved ${retrievalData.chunks.length} relevant chunks for user query`);
+            } else {
+              console.warn(`[Clerk] No relevant chunks found for query`);
             }
+          } else {
+            const errorData = await retrievalResponse.json();
+            console.error('[Clerk] Query retrieval failed:', errorData);
           }
         } catch (error) {
-          console.error('Failed to retrieve chunks:', error);
+          console.error('[Clerk] Failed to retrieve chunks for query:', error);
           // Continue without knowledge context
         }
       }
