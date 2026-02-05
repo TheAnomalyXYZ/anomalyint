@@ -214,7 +214,67 @@ def detect_horizontal_lines(
                     "height": 20
                 })
 
+    # Apply collision detection to remove overlapping lines
+    horizontal_lines = remove_overlapping_lines(horizontal_lines)
+
     return horizontal_lines
+
+def remove_overlapping_lines(lines: List[Dict[str, Any]], y_threshold: int = 15, x_overlap_threshold: float = 0.5) -> List[Dict[str, Any]]:
+    """
+    Remove overlapping lines, keeping the longest line when there's a collision.
+
+    Args:
+        lines: List of detected lines
+        y_threshold: Maximum vertical distance to consider lines as overlapping (pixels)
+        x_overlap_threshold: Minimum horizontal overlap ratio to consider collision (0.0-1.0)
+
+    Returns:
+        Filtered list of non-overlapping lines
+    """
+    if not lines:
+        return lines
+
+    # Sort by width (longest first) so we keep longer lines in case of collision
+    sorted_lines = sorted(lines, key=lambda l: l['width'], reverse=True)
+
+    filtered_lines = []
+
+    for line in sorted_lines:
+        # Check if this line overlaps with any already-accepted line
+        has_collision = False
+
+        for accepted_line in filtered_lines:
+            # Check vertical proximity (are they at similar Y positions?)
+            y_distance = abs(line['y'] - accepted_line['y'])
+            if y_distance > y_threshold:
+                continue  # Too far apart vertically, no collision
+
+            # Check horizontal overlap
+            line_x1 = line['x']
+            line_x2 = line['x'] + line['width']
+            accepted_x1 = accepted_line['x']
+            accepted_x2 = accepted_line['x'] + accepted_line['width']
+
+            # Calculate overlap
+            overlap_start = max(line_x1, accepted_x1)
+            overlap_end = min(line_x2, accepted_x2)
+            overlap_width = max(0, overlap_end - overlap_start)
+
+            # Calculate overlap ratio (relative to smaller line)
+            min_width = min(line['width'], accepted_line['width'])
+            overlap_ratio = overlap_width / min_width if min_width > 0 else 0
+
+            if overlap_ratio >= x_overlap_threshold:
+                has_collision = True
+                break
+
+        if not has_collision:
+            filtered_lines.append(line)
+
+    # Sort back by Y position for consistent ordering
+    filtered_lines.sort(key=lambda l: (l['y'], l['x']))
+
+    return filtered_lines
 
 def detect_table_cells(image: np.ndarray) -> List[Dict[str, Any]]:
     """
