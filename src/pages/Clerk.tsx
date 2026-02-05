@@ -725,6 +725,12 @@ export function Clerk() {
       return;
     }
 
+    // Check if knowledge base is selected
+    if (!selectedCorpusId) {
+      toast.error('Please select a knowledge base before using "Fill with AI".');
+      return;
+    }
+
     setCurrentFile(file);
     setChatOpen(true);
     setChatMessages([]);
@@ -1089,6 +1095,50 @@ Help the user understand the document and assist with form filling. When the use
         title="Clerk"
         description="Upload and manage PDF documents for AI-powered form filling"
       />
+
+      {/* Knowledge Base Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Knowledge Base</CardTitle>
+          <CardDescription>
+            Select a knowledge base to use for AI-powered form filling with RAG
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label htmlFor="corpus-select">Knowledge Base</Label>
+            <Select value={selectedCorpusId} onValueChange={setSelectedCorpusId}>
+              <SelectTrigger id="corpus-select">
+                <SelectValue placeholder="Select a knowledge base" />
+              </SelectTrigger>
+              <SelectContent>
+                {corpora.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    No knowledge bases available
+                  </SelectItem>
+                ) : (
+                  corpora.map((corpus) => (
+                    <SelectItem key={corpus.id} value={corpus.id}>
+                      {corpus.name}
+                      {corpus.brand_profile?.name && ` (${corpus.brand_profile.name})`}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            {selectedCorpusId && (
+              <p className="text-sm text-green-600">
+                ✓ Knowledge base selected: {corpora.find(c => c.id === selectedCorpusId)?.name}
+              </p>
+            )}
+            {!selectedCorpusId && corpora.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Select a knowledge base to enable "Fill with AI" feature
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Line Detection Settings */}
       <Card>
