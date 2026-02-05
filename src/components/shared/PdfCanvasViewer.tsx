@@ -86,46 +86,50 @@ export function PdfCanvasViewer({
 
   // Convert initial drawing elements from detection space to canvas space on load
   useEffect(() => {
-    if (!elementsConverted && scale > 0 && initialDrawingElements.length > 0) {
-      const detectionScale = 2; // Matrix(2, 2) from Python service
-      const detectionToCanvasScale = scale / detectionScale;
+    if (!elementsConverted && scale > 0) {
+      if (initialDrawingElements.length > 0) {
+        const detectionScale = 2; // Matrix(2, 2) from Python service
+        const detectionToCanvasScale = scale / detectionScale;
 
-      // Convert all drawing elements from detection space to canvas space
-      const convertedElements = initialDrawingElements.map(element => {
-        const converted: any = {
-          ...element,
-          x: element.x * detectionToCanvasScale,
-          y: element.y * detectionToCanvasScale,
-        };
+        // Convert all drawing elements from detection space to canvas space
+        const convertedElements = initialDrawingElements.map(element => {
+          const converted: any = {
+            ...element,
+            x: element.x * detectionToCanvasScale,
+            y: element.y * detectionToCanvasScale,
+          };
 
-        // Convert width/height for shapes
-        if (element.width !== undefined) {
-          converted.width = element.width * detectionToCanvasScale;
-        }
-        if (element.height !== undefined) {
-          converted.height = element.height * detectionToCanvasScale;
-        }
+          // Convert width/height for shapes
+          if (element.width !== undefined) {
+            converted.width = element.width * detectionToCanvasScale;
+          }
+          if (element.height !== undefined) {
+            converted.height = element.height * detectionToCanvasScale;
+          }
 
-        // Convert endX/endY for lines and arrows
-        if (element.endX !== undefined) {
-          converted.endX = element.endX * detectionToCanvasScale;
-        }
-        if (element.endY !== undefined) {
-          converted.endY = element.endY * detectionToCanvasScale;
-        }
+          // Convert endX/endY for lines and arrows
+          if (element.endX !== undefined) {
+            converted.endX = element.endX * detectionToCanvasScale;
+          }
+          if (element.endY !== undefined) {
+            converted.endY = element.endY * detectionToCanvasScale;
+          }
 
-        // Convert points for pen tool
-        if (element.points) {
-          converted.points = element.points.map(p => ({
-            x: p.x * detectionToCanvasScale,
-            y: p.y * detectionToCanvasScale
-          }));
-        }
+          // Convert points for pen tool
+          if (element.points) {
+            converted.points = element.points.map(p => ({
+              x: p.x * detectionToCanvasScale,
+              y: p.y * detectionToCanvasScale
+            }));
+          }
 
-        return converted;
-      });
+          return converted;
+        });
 
-      setDrawingElements(convertedElements);
+        setDrawingElements(convertedElements);
+      }
+      // Mark as converted even if there are no initial elements
+      // This allows new annotations to be saved properly
       setElementsConverted(true);
     }
   }, [initialDrawingElements, scale, elementsConverted]);
@@ -723,9 +727,8 @@ export function PdfCanvasViewer({
     setDraggingIndex(null);
 
     // Handle drawing element dragging completion
-    if (draggingElementId !== null && onDrawingElementsUpdate) {
-      onDrawingElementsUpdate(drawingElements);
-    }
+    // Note: Don't call onDrawingElementsUpdate directly here
+    // The useEffect will handle the conversion and save automatically
     setDraggingElementId(null);
 
     // Handle drawing completion
