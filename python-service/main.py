@@ -874,11 +874,17 @@ async def generate_filled_pdf(request: GenerateFilledPdfRequest):
                     value = fill.get('value', '')
                     font_size = fill.get('fontSize', 12)
 
-                    # Insert text at field position
-                    # Coordinates represent top-left of field box
-                    # PyMuPDF insert_text uses baseline, so add font_size to y
+                    # Position text ABOVE the detected line (matching frontend behavior)
+                    # Frontend: y = canvasY - textHeight - padding
+                    # We need to position text above the line, not on/below it
+                    # PyMuPDF insert_text uses baseline, so we need to:
+                    # 1. Subtract to move up from the line
+                    # 2. Account for text height
+                    padding = 2  # Small padding above the line
+                    text_height = font_size + 6  # Match frontend: aiFillsFontSize + 6
+
                     text_x = x
-                    text_y = y + font_size
+                    text_y = y - padding  # Position baseline just above the line
 
                     page.insert_text(
                         fitz.Point(text_x, text_y),
