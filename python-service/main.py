@@ -871,16 +871,14 @@ async def generate_filled_pdf(request: GenerateFilledPdfRequest):
                     # Convert from detection coordinates to PDF points
                     x = fill['x'] / scale_x
                     y = fill['y'] / scale_y
-                    width = fill.get('width', 0) / scale_x
-                    height = fill.get('height', 0) / scale_y
                     value = fill.get('value', '')
                     font_size = fill.get('fontSize', 12)
 
-                    # Insert text (PyMuPDF automatically handles text rendering)
-                    # Use a small padding from the top-left corner
-                    padding = 8 / scale_x  # Convert canvas padding to PDF points
-                    text_x = x + padding
-                    text_y = y + padding + font_size  # PyMuPDF text baseline is at bottom
+                    # Insert text at field position
+                    # Coordinates represent top-left of field box
+                    # PyMuPDF insert_text uses baseline, so add font_size to y
+                    text_x = x
+                    text_y = y + font_size
 
                     page.insert_text(
                         fitz.Point(text_x, text_y),
