@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Generate embedding for the query using OpenAI
     console.log(`[retrieve-chunks] Generating embedding for query: ${query.substring(0, 50)}...`);
     const embeddingResponse = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
+      model: 'text-embedding-3-large',
       input: query,
     });
 

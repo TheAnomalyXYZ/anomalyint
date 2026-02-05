@@ -12,7 +12,7 @@ export class EmbeddingService {
   constructor(
     apiKey: string,
     config: EmbeddingConfig = {
-      model: 'text-embedding-3-small',
+      model: 'text-embedding-3-large',
       batchSize: 100,
     }
   ) {
