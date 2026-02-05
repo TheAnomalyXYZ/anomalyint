@@ -106,10 +106,7 @@ export function Clerk() {
     try {
       const corporaData = await corporaApi.getCorpora();
       setCorpora(corporaData || []);
-      // Auto-select first corpus if available
-      if (corporaData && corporaData.length > 0 && !selectedCorpusId) {
-        setSelectedCorpusId(corporaData[0].id);
-      }
+      // Don't auto-select - let user explicitly choose which knowledge base to use
     } catch (error) {
       console.error('Error loading corpora:', error);
     }
@@ -745,7 +742,7 @@ export function Clerk() {
     try {
       // Retrieve relevant chunks from knowledge corpus if selected
       let knowledgeContext = '';
-      if (selectedCorpusId && selectedCorpusId !== 'none') {
+      if (selectedCorpusId) {
         try {
           console.log(`[Clerk] Retrieving chunks from corpus: ${selectedCorpusId}`);
           const retrievalResponse = await fetch('/api/retrieve-chunks', {
@@ -921,7 +918,7 @@ Be conversational, helpful, and concise.`;
 
       // Retrieve relevant chunks from knowledge corpus if selected
       let knowledgeContext = '';
-      if (selectedCorpusId && selectedCorpusId !== 'none') {
+      if (selectedCorpusId) {
         try {
           console.log(`[Clerk] Retrieving chunks for query: "${userMessage}"`);
           const retrievalResponse = await fetch('/api/retrieve-chunks', {

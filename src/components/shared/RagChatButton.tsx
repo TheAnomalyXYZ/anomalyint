@@ -50,9 +50,7 @@ export function RagChatButton() {
         (c) => c.syncStatus === 'completed' && c.lastSyncStats && c.lastSyncStats.files_processed > 0
       );
       setCorpora(available);
-      if (available.length > 0 && !selectedCorpusId) {
-        setSelectedCorpusId(available[0].id);
-      }
+      // Don't auto-select - let user explicitly choose which knowledge base to use
     } catch (error) {
       console.error('Failed to load corpora:', error);
     } finally {
