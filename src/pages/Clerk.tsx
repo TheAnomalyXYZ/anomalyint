@@ -789,31 +789,36 @@ export function Clerk() {
       }
 
       const corpusContext = knowledgeContext
-        ? `\n\nYou have access to a knowledge base with relevant information. Use the knowledge base context provided to give accurate, informed responses when filling forms or answering questions about the document.`
+        ? `\n\nYou have access to a knowledge base with supplementary information. This knowledge base is ONLY for reference when filling fields - it does NOT describe the current document. Always trust the document's own text over the knowledge base when identifying what the document is.`
         : '';
 
       const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates${currentFile.lineFields ? ', and detected fillable line fields' : ''}.${corpusContext}
 
 Your role:
-1. Analyze the document structure and understand what type of form it is
-2. Help users understand what information is needed
-3. Assist with form filling by suggesting appropriate values
-4. Use the fill_form_field function to suggest values for specific fields
-5. Answer questions about the document
+1. FIRST: Identify the document by reading its title/header in the Text Elements - this is the SOURCE OF TRUTH
+2. Analyze the document structure and understand what type of form it is
+3. Help users understand what information is needed
+4. When filling fields, you MAY reference the knowledge base for factual information
+5. Use the fill_form_field function to suggest values for specific fields
+
+CRITICAL: The document's own text is ALWAYS correct. The knowledge base is only supplementary reference material.
 
 Be conversational, helpful, and concise.`;
 
-      let userPrompt = `Here is a document:\n\n## Text Elements:\n${formattedText}`;
-
-      if (formattedLines) {
-        userPrompt += `\n\n## Fillable Line Fields:\n${formattedLines}`;
-      }
+      // Build user prompt with knowledge base BEFORE document text (gives document recency bias)
+      let userPrompt = '';
 
       if (knowledgeContext) {
-        userPrompt += knowledgeContext;
+        userPrompt += `## Supplementary Knowledge Base (for reference only):\n${knowledgeContext}\n\n---\n\n`;
       }
 
-      userPrompt += `\n\nGive me a summary of what this document is and what fields need to be filled.`;
+      userPrompt += `## THE CURRENT DOCUMENT (source of truth):\n\n### Text Elements:\n${formattedText}`;
+
+      if (formattedLines) {
+        userPrompt += `\n\n### Fillable Line Fields:\n${formattedLines}`;
+      }
+
+      userPrompt += `\n\nFirst, tell me: What company or organization is this document from (based on the document's title/header)? Then give me a summary of what this document is and what fields need to be filled.`;
 
       const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [{
         type: 'function',
@@ -961,20 +966,25 @@ Be conversational, helpful, and concise.`;
       }
 
       const corpusContext = knowledgeContext
-        ? `\n\nYou have access to a knowledge base with relevant information. Use the knowledge base context provided to give accurate, informed responses when filling forms or answering questions about the document.`
+        ? `\n\nYou have access to a knowledge base with supplementary information. This knowledge base is ONLY for reference when filling fields - it does NOT describe the current document. Always trust the document's own text over the knowledge base.`
         : '';
 
-      let documentContext = `## Text Elements:\n${formattedText}`;
-      if (formattedLines) {
-        documentContext += `\n\n## Fillable Line Fields:\n${formattedLines}`;
-      }
+      // Build document context with knowledge base BEFORE document (recency bias)
+      let documentContext = '';
       if (knowledgeContext) {
-        documentContext += knowledgeContext;
+        documentContext += `## Supplementary Knowledge Base (for reference only):\n${knowledgeContext}\n\n---\n\n`;
+      }
+
+      documentContext += `## THE CURRENT DOCUMENT (source of truth):\n\n### Text Elements:\n${formattedText}`;
+      if (formattedLines) {
+        documentContext += `\n\n### Fillable Line Fields:\n${formattedLines}`;
       }
 
       const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have access to the following document information:
 
 ${documentContext}${corpusContext}
+
+CRITICAL: The document's own text is ALWAYS correct. The knowledge base is only supplementary reference material for filling fields.
 
 Help the user understand the document and assist with form filling. When the user asks you to fill out the form or suggests values, use the fill_form_field function to specify which fields to fill and with what values. Be concise and helpful.`;
 
