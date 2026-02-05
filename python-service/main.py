@@ -382,6 +382,9 @@ async def detect_fillable_areas(request: DetectFieldsRequest):
             for page_num in range(total_pages):
                 page = pdf_document[page_num]
 
+                # Clean page contents to standardize orientation before detection
+                page.clean_contents()
+
                 # Convert page to image
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x scale for better quality
                 img_data = pix.tobytes("png")
@@ -493,6 +496,9 @@ async def detect_table_cells_endpoint(request: DetectFieldsRequest):
             for page_num in range(total_pages):
                 page = pdf_document[page_num]
 
+                # Clean page contents to standardize orientation before detection
+                page.clean_contents()
+
                 # Convert page to image
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x scale for better quality
                 img_data = pix.tobytes("png")
@@ -590,6 +596,9 @@ async def detect_text(request: DetectFieldsRequest):
             # Process each page
             for page_num in range(total_pages):
                 page = pdf_document[page_num]
+
+                # Clean page contents to standardize orientation before detection
+                page.clean_contents()
 
                 # Convert page to image
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x scale for better quality

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { Loader2, Move } from 'lucide-react';
 
-// Set up the worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up the worker - use unpkg as a more reliable CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface FieldFill {
   fieldIndex: number;
@@ -323,28 +323,6 @@ export function PdfCanvasViewer({
     setDraggingIndex(null);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[500px] bg-slate-50 rounded-lg border">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-indigo-600" />
-          <p className="text-sm text-muted-foreground">Rendering PDF with overlays...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-[500px] bg-slate-50 rounded-lg border">
-        <div className="text-center text-red-600">
-          <p className="font-semibold mb-1">Error rendering PDF</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div ref={containerRef} className="bg-white dark:bg-gray-800 rounded-lg border p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -356,19 +334,40 @@ export function PdfCanvasViewer({
           Page {pageNumber} • {suggestedFills.filter(f => f.page === pageNumber).length} suggestions
         </span>
       </div>
-      <div className="overflow-auto max-h-[600px] relative">
+      <div className="overflow-auto max-h-[600px] relative min-h-[500px]">
         {/* PDF canvas (background) */}
-        <canvas ref={canvasRef} className="absolute top-0 left-0" />
+        <canvas ref={canvasRef} className="absolute top-0 left-0" style={{ visibility: loading ? 'hidden' : 'visible' }} />
 
         {/* Overlay canvas (interactive overlays) */}
         <canvas
           ref={overlayCanvasRef}
           className="absolute top-0 left-0 cursor-move"
+          style={{ visibility: loading ? 'hidden' : 'visible' }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         />
+
+        {/* Loading overlay */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-indigo-600" />
+              <p className="text-sm text-muted-foreground">Rendering PDF with overlays...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error overlay */}
+        {error && !loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+            <div className="text-center text-red-600">
+              <p className="font-semibold mb-1">Error rendering PDF</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          </div>
+        )}
       </div>
       <div className="mt-3 text-xs text-muted-foreground space-y-1">
         <p className="flex items-center gap-1">
