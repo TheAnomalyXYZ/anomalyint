@@ -26,12 +26,12 @@ app.add_middleware(
 class DetectFieldsRequest(BaseModel):
     pdfUrl: str
     # Optional line detection parameters for tuning
-    cannyLow: int = 150
-    cannyHigh: int = 250
-    houghThreshold: int = 200
+    cannyLow: int = 115
+    cannyHigh: int = 175
+    houghThreshold: int = 150
     minLineLength: int = 100
-    maxLineGap: int = 5
-    minWidth: int = 100
+    maxLineGap: int = 7
+    minWidth: int = 60
 
 class FillFormRequest(BaseModel):
     pdfUrl: str
@@ -181,12 +181,12 @@ async def fill_form(request: FillFormRequest):
 
 def detect_horizontal_lines(
     image: np.ndarray,
-    canny_low: int = 150,
-    canny_high: int = 250,
-    hough_threshold: int = 200,
+    canny_low: int = 115,
+    canny_high: int = 175,
+    hough_threshold: int = 150,
     min_line_length: int = 100,
-    max_line_gap: int = 5,
-    min_width: int = 100
+    max_line_gap: int = 7,
+    min_width: int = 60
 ) -> List[Dict[str, Any]]:
     """
     Detect horizontal lines that could be fillable underscores

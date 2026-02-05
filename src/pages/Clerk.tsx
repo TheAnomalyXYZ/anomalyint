@@ -47,14 +47,14 @@ export function Clerk() {
   const [expandedFileId, setExpandedFileId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Line detection parameters with default strict settings
+  // Line detection parameters with balanced default settings
   const [detectionParams, setDetectionParams] = useState<LineDetectionParams>({
-    cannyLow: 150,
-    cannyHigh: 250,
-    houghThreshold: 200,
+    cannyLow: 115,
+    cannyHigh: 175,
+    houghThreshold: 150,
     minLineLength: 100,
-    maxLineGap: 5,
-    minWidth: 100,
+    maxLineGap: 7,
+    minWidth: 60,
   });
 
   // Fetch previously uploaded files on component mount
@@ -705,12 +705,12 @@ export function Clerk() {
               <Button
                 variant="outline"
                 onClick={() => setDetectionParams({
-                  cannyLow: 150,
-                  cannyHigh: 250,
-                  houghThreshold: 200,
+                  cannyLow: 115,
+                  cannyHigh: 175,
+                  houghThreshold: 150,
                   minLineLength: 100,
-                  maxLineGap: 5,
-                  minWidth: 100,
+                  maxLineGap: 7,
+                  minWidth: 60,
                 })}
               >
                 Reset to Defaults
