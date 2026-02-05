@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trash2, Brain, User, Send } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trash2, Brain, User, Send, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase, corporaApi } from '../lib/supabase';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -1450,6 +1450,94 @@ Help the user understand the document and assist with form filling. When the use
                   {expandedFileId === file.id && (file.lineFields || file.tableFields || file.textElements) && (
                     <div className="border-t p-4 bg-gray-50 dark:bg-gray-900">
                       <div className="space-y-6">
+                        {/* Visual Field Map */}
+                        {file.suggestedFills && file.suggestedFills.length > 0 && (
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="font-semibold mb-2 flex items-center gap-2 text-green-600 dark:text-green-400">
+                                <Eye className="h-5 w-5" />
+                                Visual Field Map - AI Suggestions
+                              </h4>
+                              <div className="text-sm text-muted-foreground mb-3">
+                                Interactive visualization showing where AI will place values
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              {/* PDF Preview */}
+                              <div className="bg-white dark:bg-gray-800 rounded-lg border p-2">
+                                <iframe
+                                  src={`${file.url}#page=1&view=FitH&toolbar=0`}
+                                  className="w-full h-[500px] border-0 rounded"
+                                  title={`Preview of ${file.name}`}
+                                />
+                                <div className="text-xs text-muted-foreground mt-2 text-center">
+                                  Document Preview (Page 1)
+                                </div>
+                              </div>
+
+                              {/* Field Visualization */}
+                              <div className="bg-white dark:bg-gray-800 rounded-lg border p-4">
+                                <h5 className="font-medium mb-3 text-sm">Suggested Fill Locations</h5>
+                                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                                  {file.suggestedFills.map((fill: FieldFill, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      className="p-3 rounded border-l-4 border-green-500 bg-green-50 dark:bg-green-950/30"
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold">
+                                              {fill.fieldIndex}
+                                            </span>
+                                            {fill.label && (
+                                              <span className="text-xs font-medium text-muted-foreground">
+                                                {fill.label}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-sm font-semibold text-green-700 dark:text-green-300 mb-1">
+                                            "{fill.value}"
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">
+                                            Position: ({fill.x}, {fill.y}) • Size: {fill.width}×{fill.height}px
+                                          </div>
+                                        </div>
+                                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-1" />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="mt-4 pt-4 border-t">
+                                  <div className="text-xs text-muted-foreground mb-2">Legend:</div>
+                                  <div className="flex flex-wrap gap-3 text-xs">
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                                        #
+                                      </div>
+                                      <span>Field Index</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                      <span>Ready to apply</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                              <div className="flex gap-2">
+                                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                                <div className="text-sm text-blue-900 dark:text-blue-100">
+                                  <strong>Note:</strong> Coordinates are shown in PDF points. The actual placement will match these positions when the PDF is filled. Use the numbered indicators to match fields between the preview and the list.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Line Fields Section */}
                         {file.lineFields && file.lineFields.length > 0 && (
                           <div className="space-y-4">
