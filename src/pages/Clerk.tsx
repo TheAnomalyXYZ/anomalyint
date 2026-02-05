@@ -33,6 +33,16 @@ interface TextElement {
   page?: number;
 }
 
+interface FieldFill {
+  fieldIndex: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  value: string;
+  label?: string;
+}
+
 interface UploadedFile {
   id: string;
   name: string;
@@ -47,6 +57,7 @@ interface UploadedFile {
   tableFields?: FillableField[];
   textElements?: TextElement[];
   totalPages?: number;
+  suggestedFills?: FieldFill[];
 }
 
 interface LineDetectionParams {
@@ -704,6 +715,12 @@ export function Clerk() {
     ).join('\n');
   };
 
+  const formatLineFields = (fields: FillableField[]): string => {
+    return fields.map((field, idx) =>
+      `Field ${idx}:\nType: ${field.type}\nPage: ${field.page || 'N/A'}\nPosition: (${field.x}, ${field.y})\nSize: ${field.width} × ${field.height}${field.label ? `\nLabel: ${field.label}` : ''}`
+    ).join('\n\n');
+  };
+
   const handleOpenChat = async (file: UploadedFile) => {
     // Check if text elements exist
     if (!file.textElements || file.textElements.length === 0) {
@@ -723,23 +740,57 @@ export function Clerk() {
 
     // Generate initial greeting with document summary
     const formattedText = formatTextElements(file.textElements);
+    const formattedLines = file.lineFields ? formatLineFields(file.lineFields) : '';
 
     try {
       const corpusContext = selectedCorpusId && selectedCorpusId !== 'none'
         ? `\n\nYou have access to a knowledge base. Use it to provide accurate, context-aware responses when filling forms or answering questions about the document.`
         : '';
 
-      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates.${corpusContext}
+      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates${file.lineFields ? ', and detected fillable line fields' : ''}.${corpusContext}
 
 Your role:
 1. Analyze the document structure and understand what type of form it is
 2. Help users understand what information is needed
 3. Assist with form filling by suggesting appropriate values
-4. Answer questions about the document
+4. Use the fill_form_field function to suggest values for specific fields
+5. Answer questions about the document
 
 Be conversational, helpful, and concise.`;
 
-      const userPrompt = `Here is a document:\n\n${formattedText}\n\nGive me a summary of what this document is.`;
+      let userPrompt = `Here is a document:\n\n## Text Elements:\n${formattedText}`;
+
+      if (formattedLines) {
+        userPrompt += `\n\n## Fillable Line Fields:\n${formattedLines}`;
+      }
+
+      userPrompt += `\n\nGive me a summary of what this document is and what fields need to be filled.`;
+
+      const tools: OpenAI.Chat.ChatCompletionTool[] = file.lineFields ? [{
+        type: 'function',
+        function: {
+          name: 'fill_form_field',
+          description: 'Suggest a value to fill in a specific form field by field index',
+          parameters: {
+            type: 'object',
+            properties: {
+              fieldIndex: {
+                type: 'number',
+                description: 'The index of the field to fill (from the Fillable Line Fields list)'
+              },
+              value: {
+                type: 'string',
+                description: 'The suggested value to fill in this field'
+              },
+              reasoning: {
+                type: 'string',
+                description: 'Brief explanation of why this value is appropriate'
+              }
+            },
+            required: ['fieldIndex', 'value', 'reasoning']
+          }
+        }
+      }] : [];
 
       const completion = await openaiClient.current.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -747,12 +798,60 @@ Be conversational, helpful, and concise.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
+        tools: tools.length > 0 ? tools : undefined,
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1000,
       });
 
-      const summary = completion.choices[0]?.message?.content || 'I analyzed the document but could not generate a summary.';
-      setChatMessages([{ role: 'assistant', content: summary }]);
+      const message = completion.choices[0]?.message;
+      const summary = message?.content || 'I analyzed the document but could not generate a summary.';
+
+      // Handle function calls if any
+      if (message?.tool_calls && message.tool_calls.length > 0) {
+        const fills: FieldFill[] = [];
+        let functionResults = '';
+
+        for (const toolCall of message.tool_calls) {
+          if (toolCall.function.name === 'fill_form_field') {
+            try {
+              const args = JSON.parse(toolCall.function.arguments);
+              const field = file.lineFields![args.fieldIndex];
+
+              if (field) {
+                fills.push({
+                  fieldIndex: args.fieldIndex,
+                  x: field.x,
+                  y: field.y,
+                  width: field.width,
+                  height: field.height,
+                  value: args.value,
+                  label: field.label
+                });
+
+                functionResults += `\n✓ Field ${args.fieldIndex}: "${args.value}" (${args.reasoning})`;
+              }
+            } catch (error) {
+              console.error('Error processing fill_form_field call:', error);
+            }
+          }
+        }
+
+        // Update file with suggested fills
+        if (fills.length > 0) {
+          setCurrentFile(prev => prev ? { ...prev, suggestedFills: fills } : null);
+          setFiles(prev => prev.map(f =>
+            f.id === file.id ? { ...f, suggestedFills: fills } : f
+          ));
+          toast.success(`AI suggested ${fills.length} field fills`);
+        }
+
+        setChatMessages([{
+          role: 'assistant',
+          content: summary + (functionResults ? `\n\n**Suggested Field Fills:**${functionResults}` : '')
+        }]);
+      } else {
+        setChatMessages([{ role: 'assistant', content: summary }]);
+      }
     } catch (error) {
       console.error('Error generating document summary:', error);
       toast.error('Failed to generate document summary');
@@ -772,16 +871,22 @@ Be conversational, helpful, and concise.`;
 
     try {
       const formattedText = currentFile.textElements ? formatTextElements(currentFile.textElements) : '';
+      const formattedLines = currentFile.lineFields ? formatLineFields(currentFile.lineFields) : '';
 
       const corpusContext = selectedCorpusId && selectedCorpusId !== 'none'
         ? `\n\nYou have access to a knowledge base. Use it to provide accurate, context-aware responses when filling forms or answering questions about the document.`
         : '';
 
-      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have access to the following document text with coordinates:
+      let documentContext = `## Text Elements:\n${formattedText}`;
+      if (formattedLines) {
+        documentContext += `\n\n## Fillable Line Fields:\n${formattedLines}`;
+      }
 
-${formattedText}${corpusContext}
+      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have access to the following document information:
 
-Help the user understand the document and assist with form filling. Be concise and helpful.`;
+${documentContext}${corpusContext}
+
+Help the user understand the document and assist with form filling. When the user asks you to fill out the form or suggests values, use the fill_form_field function to specify which fields to fill and with what values. Be concise and helpful.`;
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
@@ -792,15 +897,98 @@ Help the user understand the document and assist with form filling. Be concise a
         { role: 'user', content: userMessage }
       ];
 
+      const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [{
+        type: 'function',
+        function: {
+          name: 'fill_form_field',
+          description: 'Suggest a value to fill in a specific form field by field index',
+          parameters: {
+            type: 'object',
+            properties: {
+              fieldIndex: {
+                type: 'number',
+                description: 'The index of the field to fill (from the Fillable Line Fields list)'
+              },
+              value: {
+                type: 'string',
+                description: 'The suggested value to fill in this field'
+              },
+              reasoning: {
+                type: 'string',
+                description: 'Brief explanation of why this value is appropriate'
+              }
+            },
+            required: ['fieldIndex', 'value', 'reasoning']
+          }
+        }
+      }] : [];
+
       const completion = await openaiClient.current.chat.completions.create({
         model: 'gpt-4o-mini',
         messages,
+        tools: tools.length > 0 ? tools : undefined,
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1000,
       });
 
-      const assistantMessage = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
-      setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+      const message = completion.choices[0]?.message;
+      const assistantMessage = message?.content || 'I apologize, but I could not generate a response.';
+
+      // Handle function calls if any
+      if (message?.tool_calls && message.tool_calls.length > 0) {
+        const fills: FieldFill[] = currentFile.suggestedFills || [];
+        let functionResults = '';
+
+        for (const toolCall of message.tool_calls) {
+          if (toolCall.function.name === 'fill_form_field') {
+            try {
+              const args = JSON.parse(toolCall.function.arguments);
+              const field = currentFile.lineFields![args.fieldIndex];
+
+              if (field) {
+                // Check if this field already has a suggestion, update it
+                const existingIndex = fills.findIndex(f => f.fieldIndex === args.fieldIndex);
+
+                const newFill: FieldFill = {
+                  fieldIndex: args.fieldIndex,
+                  x: field.x,
+                  y: field.y,
+                  width: field.width,
+                  height: field.height,
+                  value: args.value,
+                  label: field.label
+                };
+
+                if (existingIndex >= 0) {
+                  fills[existingIndex] = newFill;
+                } else {
+                  fills.push(newFill);
+                }
+
+                functionResults += `\n✓ Field ${args.fieldIndex}: "${args.value}" (${args.reasoning})`;
+              }
+            } catch (error) {
+              console.error('Error processing fill_form_field call:', error);
+            }
+          }
+        }
+
+        // Update file with suggested fills
+        if (fills.length > 0) {
+          setCurrentFile(prev => prev ? { ...prev, suggestedFills: fills } : null);
+          setFiles(prev => prev.map(f =>
+            f.id === currentFile.id ? { ...f, suggestedFills: fills } : f
+          ));
+          toast.success(`AI suggested fills for ${message.tool_calls.length} fields`);
+        }
+
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: assistantMessage + (functionResults ? `\n\n**Suggested Field Fills:**${functionResults}` : '')
+        }]);
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+      }
     } catch (error) {
       console.error('Chat error:', error);
       toast.error('Failed to send message');
@@ -1329,6 +1517,84 @@ Help the user understand the document and assist with form filling. Be concise a
                                 }}
                               >
                                 Download Text Elements JSON
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Suggested Fills Section */}
+                        {file.suggestedFills && file.suggestedFills.length > 0 && (
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
+                                AI Suggested Fills ({file.suggestedFills.length})
+                              </h4>
+                              <div className="text-sm text-muted-foreground mb-3">
+                                AI-generated field values with coordinates
+                              </div>
+                            </div>
+
+                            <div className="max-h-96 overflow-y-auto space-y-3">
+                              {file.suggestedFills.map((fill: FieldFill, idx: number) => (
+                                <div key={idx} className="bg-green-50 dark:bg-green-950 p-3 rounded border border-green-200 dark:border-green-800">
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                      <span className="font-medium text-green-700 dark:text-green-300">
+                                        Field {fill.fieldIndex}
+                                      </span>
+                                      {fill.label && (
+                                        <span className="text-xs text-muted-foreground">
+                                          ({fill.label})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 pl-6">
+                                      <div className="col-span-2">
+                                        <span className="font-medium">Value:</span>{' '}
+                                        <span className="text-green-700 dark:text-green-300 font-semibold">
+                                          {fill.value}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Position:</span> ({fill.x}, {fill.y})
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Size:</span> {fill.width} × {fill.height}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="pt-3 border-t flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const dataStr = JSON.stringify(file.suggestedFills, null, 2);
+                                  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                                  const url = URL.createObjectURL(dataBlob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${file.name}-suggested-fills.json`;
+                                  link.click();
+                                  URL.revokeObjectURL(url);
+                                  toast.success('Suggested fills JSON downloaded');
+                                }}
+                              >
+                                Download Suggested Fills JSON
+                              </Button>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="gradient-primary text-white"
+                                onClick={() => {
+                                  toast.info('Apply fills feature coming soon');
+                                }}
+                              >
+                                Apply Fills to PDF
                               </Button>
                             </div>
                           </div>
