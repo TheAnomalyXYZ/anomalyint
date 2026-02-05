@@ -83,6 +83,8 @@ export function Clerk() {
   const [currentFile, setCurrentFile] = useState<UploadedFile | null>(null);
   const [corpora, setCorpora] = useState<Corpus[]>([]);
   const [selectedCorpusId, setSelectedCorpusId] = useState<string>("");
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [pdfViewerFile, setPdfViewerFile] = useState<UploadedFile | null>(null);
 
   // Initialize OpenAI client
   const openaiClient = useRef<OpenAI | null>(null);
@@ -1538,7 +1540,10 @@ Help the user understand the document and assist with form filling. When the use
                                 </div>
                               </div>
                               <Button
-                                onClick={() => setCurrentFile(file)}
+                                onClick={() => {
+                                  setPdfViewerFile(file);
+                                  setPdfViewerOpen(true);
+                                }}
                                 variant="default"
                                 size="sm"
                                 className="flex items-center gap-2"
@@ -1956,6 +1961,44 @@ Help the user understand the document and assist with form filling. When the use
                 ? 'Select a knowledge base and click "Start Chat" to begin'
                 : 'Press Enter to send, Shift+Enter for new line'}
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Viewer Modal */}
+      <Dialog open={pdfViewerOpen} onOpenChange={setPdfViewerOpen}>
+        <DialogContent className="max-w-[90vw] w-full max-h-[95vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 gradient-primary text-white rounded-lg">
+                <Eye className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <DialogTitle>Interactive PDF Viewer</DialogTitle>
+                <DialogDescription>
+                  {pdfViewerFile?.name} - Drag overlays to adjust field positions
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto p-6">
+            {pdfViewerFile && pdfViewerFile.suggestedFills && (
+              <PdfCanvasViewer
+                pdfUrl={pdfViewerFile.url}
+                suggestedFills={pdfViewerFile.suggestedFills}
+                pageNumber={1}
+                onFillsUpdate={(updatedFills) => {
+                  // Update the file with new coordinates
+                  setFiles((prev: UploadedFile[]) => prev.map((f: UploadedFile) =>
+                    f.id === pdfViewerFile.id
+                      ? { ...f, suggestedFills: updatedFills }
+                      : f
+                  ));
+                  setPdfViewerFile({ ...pdfViewerFile, suggestedFills: updatedFills });
+                }}
+              />
+            )}
           </div>
         </DialogContent>
       </Dialog>
