@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trash2, Brain, User, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { cn } from '../lib/utils';
+import OpenAI from 'openai';
 
 interface FillableField {
   type: string;
@@ -57,6 +61,25 @@ export function Clerk() {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedFileId, setExpandedFileId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [currentFile, setCurrentFile] = useState<UploadedFile | null>(null);
+
+  // Initialize OpenAI client
+  const openaiClient = useRef<OpenAI | null>(null);
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (apiKey) {
+      openaiClient.current = new OpenAI({
+        apiKey: apiKey,
+        dangerouslyAllowBrowser: true
+      });
+    } else {
+      console.warn('OpenAI API key not found in environment variables');
+    }
+  }, []);
 
   // Line detection parameters with balanced default settings
   const [detectionParams, setDetectionParams] = useState<LineDetectionParams>({
@@ -652,6 +675,111 @@ export function Clerk() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const formatTextElements = (elements: TextElement[]): string => {
+    return elements.map(elem =>
+      `Text: ${elem.text}\nPage: ${elem.page || 'N/A'}\nConfidence: ${elem.confidence.toFixed(2)}%\nPosition: (${elem.x}, ${elem.y})\nSize: ${elem.width} × ${elem.height}`
+    ).join('\n');
+  };
+
+  const handleOpenChat = async (file: UploadedFile) => {
+    // Check if text elements exist
+    if (!file.textElements || file.textElements.length === 0) {
+      toast.error('No text detected. Please run "Detect Text" first.');
+      return;
+    }
+
+    setCurrentFile(file);
+    setChatOpen(true);
+    setChatMessages([]);
+    setChatInput("");
+
+    if (!openaiClient.current) {
+      toast.error('OpenAI API key not configured');
+      return;
+    }
+
+    // Generate initial greeting with document summary
+    const formattedText = formatTextElements(file.textElements);
+
+    try {
+      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates.
+
+Your role:
+1. Analyze the document structure and understand what type of form it is
+2. Help users understand what information is needed
+3. Assist with form filling by suggesting appropriate values
+4. Answer questions about the document
+
+Be conversational, helpful, and concise.`;
+
+      const userPrompt = `Here is a document:\n\n${formattedText}\n\nGive me a summary of what this document is.`;
+
+      const completion = await openaiClient.current.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
+      });
+
+      const summary = completion.choices[0]?.message?.content || 'I analyzed the document but could not generate a summary.';
+      setChatMessages([{ role: 'assistant', content: summary }]);
+    } catch (error) {
+      console.error('Error generating document summary:', error);
+      toast.error('Failed to generate document summary');
+      setChatMessages([{
+        role: 'assistant',
+        content: `I'm ready to help you with ${file.name}. I detected ${file.textElements.length} text elements. What would you like to know?`
+      }]);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || !openaiClient.current || !currentFile) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput("");
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+
+    try {
+      const formattedText = currentFile.textElements ? formatTextElements(currentFile.textElements) : '';
+
+      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have access to the following document text with coordinates:
+
+${formattedText}
+
+Help the user understand the document and assist with form filling. Be concise and helpful.`;
+
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemPrompt },
+        ...chatMessages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        })),
+        { role: 'user', content: userMessage }
+      ];
+
+      const completion = await openaiClient.current.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages,
+        temperature: 0.7,
+        max_tokens: 500,
+      });
+
+      const assistantMessage = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+      setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      toast.error('Failed to send message');
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.'
+      }]);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -969,9 +1097,7 @@ export function Clerk() {
                             <Button
                               variant="default"
                               size="sm"
-                              onClick={() => {
-                                toast.info('AI form filling coming in next iteration!');
-                              }}
+                              onClick={() => handleOpenChat(file)}
                             >
                               Fill with AI
                             </Button>
@@ -1192,6 +1318,100 @@ export function Clerk() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* AI Chat Dialog */}
+      <Dialog open={chatOpen} onOpenChange={setChatOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 gradient-primary text-white rounded-lg">
+                <Brain className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <DialogTitle>AI Form Assistant</DialogTitle>
+                <DialogDescription>
+                  Chat with AI about {currentFile?.name || 'your document'}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-[400px] max-h-[50vh]">
+            {chatMessages.length === 0 ? (
+              <div className="text-center py-12">
+                <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Analyzing document...</h3>
+                <p className="text-muted-foreground">
+                  Please wait while I understand your document
+                </p>
+              </div>
+            ) : (
+              chatMessages.map((message, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "flex gap-3",
+                    message.role === 'user' ? "justify-end" : "justify-start"
+                  )}
+                >
+                  {message.role === 'assistant' && (
+                    <div className="flex items-center justify-center w-8 h-8 gradient-primary text-white rounded-lg flex-shrink-0">
+                      <Brain className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "rounded-lg px-4 py-3 max-w-[80%]",
+                      message.role === 'user'
+                        ? "bg-gradient-to-r from-indigo-600 to-purple-600"
+                        : "bg-muted"
+                    )}
+                  >
+                    <p className={cn(
+                      "text-sm whitespace-pre-wrap",
+                      message.role === 'user' ? "text-white" : ""
+                    )}>{message.content}</p>
+                  </div>
+                  {message.role === 'user' && (
+                    <div className="flex items-center justify-center w-8 h-8 bg-slate-200 rounded-lg flex-shrink-0">
+                      <User className="h-4 w-4 text-slate-600" />
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Chat Input */}
+          <div className="p-4 border-t bg-slate-50">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ask about the document or request form filling..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="flex-1 bg-white"
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!chatInput.trim()}
+                className="gradient-primary text-white border-0"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Press Enter to send, Shift+Enter for new line
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
