@@ -4,11 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Trash2, Brain, User, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../lib/supabase';
+import { supabase, corporaApi } from '../lib/supabase';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { cn } from '../lib/utils';
 import OpenAI from 'openai';
+import { Corpus } from '../lib/types';
 
 interface FillableField {
   type: string;
@@ -65,6 +68,8 @@ export function Clerk() {
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
   const [chatInput, setChatInput] = useState("");
   const [currentFile, setCurrentFile] = useState<UploadedFile | null>(null);
+  const [corpora, setCorpora] = useState<Corpus[]>([]);
+  const [selectedCorpusId, setSelectedCorpusId] = useState<string>("");
 
   // Initialize OpenAI client
   const openaiClient = useRef<OpenAI | null>(null);
@@ -80,6 +85,24 @@ export function Clerk() {
       console.warn('OpenAI API key not found in environment variables');
     }
   }, []);
+
+  // Load corpora on component mount
+  useEffect(() => {
+    loadCorpora();
+  }, []);
+
+  const loadCorpora = async () => {
+    try {
+      const corporaData = await corporaApi.getCorpora();
+      setCorpora(corporaData || []);
+      // Auto-select first corpus if available
+      if (corporaData && corporaData.length > 0 && !selectedCorpusId) {
+        setSelectedCorpusId(corporaData[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading corpora:', error);
+    }
+  };
 
   // Line detection parameters with balanced default settings
   const [detectionParams, setDetectionParams] = useState<LineDetectionParams>({
@@ -702,7 +725,11 @@ export function Clerk() {
     const formattedText = formatTextElements(file.textElements);
 
     try {
-      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates.
+      const corpusContext = selectedCorpusId && selectedCorpusId !== 'none'
+        ? `\n\nYou have access to a knowledge base. Use it to provide accurate, context-aware responses when filling forms or answering questions about the document.`
+        : '';
+
+      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates.${corpusContext}
 
 Your role:
 1. Analyze the document structure and understand what type of form it is
@@ -746,9 +773,13 @@ Be conversational, helpful, and concise.`;
     try {
       const formattedText = currentFile.textElements ? formatTextElements(currentFile.textElements) : '';
 
+      const corpusContext = selectedCorpusId && selectedCorpusId !== 'none'
+        ? `\n\nYou have access to a knowledge base. Use it to provide accurate, context-aware responses when filling forms or answering questions about the document.`
+        : '';
+
       const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have access to the following document text with coordinates:
 
-${formattedText}
+${formattedText}${corpusContext}
 
 Help the user understand the document and assist with form filling. Be concise and helpful.`;
 
@@ -1334,6 +1365,31 @@ Help the user understand the document and assist with form filling. Be concise a
                 </DialogDescription>
               </div>
             </div>
+
+            {/* Knowledge Base Selector */}
+            {corpora.length > 0 && (
+              <div className="mt-4">
+                <Label className="text-sm font-medium mb-2 block">Knowledge Base</Label>
+                <Select value={selectedCorpusId} onValueChange={setSelectedCorpusId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a knowledge base" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (General AI)</SelectItem>
+                    {corpora.map((corpus) => (
+                      <SelectItem key={corpus.id} value={corpus.id}>
+                        {corpus.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedCorpusId && selectedCorpusId !== 'none' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Responses will use knowledge from the selected corpus
+                  </p>
+                )}
+              </div>
+            )}
           </DialogHeader>
 
           {/* Chat Messages */}
