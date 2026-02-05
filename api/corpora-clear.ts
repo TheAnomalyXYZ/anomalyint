@@ -62,7 +62,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Delete all chunks and documents for this corpus
+    // First, get all document IDs for this corpus
+    const { data: documents, error: fetchDocsError } = await supabase
+      .from('documents')
+      .select('id')
+      .eq('corpus_id', corpus_id);
+
+    if (fetchDocsError) {
+      console.error('Failed to fetch documents:', fetchDocsError);
+      return res.status(500).json({
+        error: 'Failed to fetch documents',
+        message: fetchDocsError.message,
+      });
+    }
+
+    // Delete all chunks for these documents
+    if (documents && documents.length > 0) {
+      const documentIds = documents.map(doc => doc.id);
+
+      const { error: deleteChunksError } = await supabase
+        .from('chunks')
+        .delete()
+        .in('document_id', documentIds);
+
+      if (deleteChunksError) {
+        console.error('Failed to delete chunks:', deleteChunksError);
+        return res.status(500).json({
+          error: 'Failed to clear chunks',
+          message: deleteChunksError.message,
+        });
+      }
+    }
+
+    // Now delete all documents for this corpus
     const { error: deleteDocsError } = await supabase
       .from('documents')
       .delete()
