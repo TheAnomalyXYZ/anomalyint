@@ -561,6 +561,85 @@ async def detect_table_cells_endpoint(request: DetectFieldsRequest):
             detail=f"Table cell detection failed: {str(e)}"
         )
 
+@app.post("/detect-text")
+async def detect_text(request: DetectFieldsRequest):
+    """
+    Detect all text in a PDF with coordinates using OCR
+    """
+    try:
+        print(f"[detect-text] Downloading PDF from: {request.pdfUrl}")
+
+        # Download the PDF
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
+            req = urllib.request.Request(
+                request.pdfUrl,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            )
+            with urllib.request.urlopen(req) as response:
+                temp_input.write(response.read())
+            temp_input_path = temp_input.name
+
+        try:
+            # Open PDF with PyMuPDF
+            pdf_document = fitz.open(temp_input_path)
+            all_text_elements = []
+            total_pages = len(pdf_document)
+
+            # Process each page
+            for page_num in range(total_pages):
+                page = pdf_document[page_num]
+
+                # Convert page to image
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x scale for better quality
+                img_data = pix.tobytes("png")
+
+                # Convert to numpy array for OpenCV
+                nparr = np.frombuffer(img_data, np.uint8)
+                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                # Extract text with positions
+                text_elements = extract_text_with_positions(image)
+                print(f"Page {page_num + 1}: Extracted {len(text_elements)} text elements")
+
+                # Add page number to each text element
+                for text_elem in text_elements:
+                    text_elem['page'] = page_num + 1
+
+                all_text_elements.extend(text_elements)
+
+            pdf_document.close()
+
+            # Group text by page for better organization
+            text_by_page = {}
+            for text_elem in all_text_elements:
+                page = text_elem.get('page', 1)
+                if page not in text_by_page:
+                    text_by_page[page] = []
+                text_by_page[page].append(text_elem)
+
+            return {
+                "success": True,
+                "message": "Text detected successfully",
+                "totalPages": total_pages,
+                "textElementsDetected": len(all_text_elements),
+                "textElements": all_text_elements,  # Return all text elements
+                "textByPage": text_by_page,  # Organized by page
+            }
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_input_path):
+                os.unlink(temp_input_path)
+
+    except Exception as e:
+        print(f"[detect-text] Error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Text detection failed: {str(e)}"
+        )
+
 @app.post("/annotate-pdf")
 async def annotate_pdf(request: AnnotatePdfRequest):
     """

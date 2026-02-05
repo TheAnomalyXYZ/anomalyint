@@ -16,6 +16,16 @@ interface FillableField {
   page?: number;
 }
 
+interface TextElement {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence: number;
+  page?: number;
+}
+
 interface UploadedFile {
   id: string;
   name: string;
@@ -28,6 +38,7 @@ interface UploadedFile {
   detectedFields?: FillableField[];
   lineFields?: FillableField[];
   tableFields?: FillableField[];
+  textElements?: TextElement[];
   totalPages?: number;
 }
 
@@ -80,6 +91,7 @@ export function Clerk() {
           detectedFields: doc.detected_fields,
           lineFields: doc.line_fields,
           tableFields: doc.table_fields,
+          textElements: doc.text_elements,
           totalPages: doc.total_pages,
           filledUrl: doc.filled_url || undefined,
         }));
@@ -401,6 +413,72 @@ export function Clerk() {
         )
       );
       toast.error('Failed to detect table cells');
+    }
+  };
+
+  const handleDetectText = async (fileId: string, pdfUrl: string) => {
+    try {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'detecting' as const } : f
+        )
+      );
+
+      const response = await fetch('/api/clerk/detect-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pdfUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to detect text');
+      }
+
+      const data = await response.json();
+
+      const now = new Date().toISOString();
+      const { error: dbError } = await supabase
+        .from('clerk_documents')
+        .update({
+          status: 'completed',
+          fields_detected: true,
+          text_elements: data.textElements || [],
+          total_pages: data.totalPages || 0,
+          processed_at: now,
+          updated_at: now,
+        })
+        .eq('id', fileId);
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+      }
+
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId
+            ? {
+                ...f,
+                status: 'completed' as const,
+                fieldsDetected: true,
+                textElements: data.textElements || [],
+                totalPages: data.totalPages || 0,
+              }
+            : f
+        )
+      );
+
+      const textCount = data.textElementsDetected || 0;
+      toast.success(`Detected ${textCount} text elements!`);
+    } catch (error) {
+      console.error('Text detection error:', error);
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileId ? { ...f, status: 'error' as const } : f
+        )
+      );
+      toast.error('Failed to detect text');
     }
   };
 
@@ -861,7 +939,14 @@ export function Clerk() {
                         >
                           Detect Tables
                         </Button>
-                        {(file.lineFields || file.tableFields) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDetectText(file.id, file.url)}
+                        >
+                          Detect Text
+                        </Button>
+                        {(file.lineFields || file.tableFields || file.textElements) && (
                           <>
                             {file.lineFields && file.lineFields.length > 0 && (
                               <Button
@@ -917,7 +1002,7 @@ export function Clerk() {
                   </div>
 
                   {/* Expanded Fields View */}
-                  {expandedFileId === file.id && (file.lineFields || file.tableFields) && (
+                  {expandedFileId === file.id && (file.lineFields || file.tableFields || file.textElements) && (
                     <div className="border-t p-4 bg-gray-50 dark:bg-gray-900">
                       <div className="space-y-6">
                         {/* Line Fields Section */}
@@ -1031,6 +1116,62 @@ export function Clerk() {
                                 }}
                               >
                                 Download Table Fields JSON
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Text Elements Section */}
+                        {file.textElements && file.textElements.length > 0 && (
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="font-semibold mb-2">Text Elements ({file.textElements.length})</h4>
+                              <div className="text-sm text-muted-foreground mb-3">
+                                OCR-detected text with coordinates
+                              </div>
+                            </div>
+
+                            <div className="max-h-96 overflow-y-auto space-y-3">
+                              {file.textElements.map((textElem: TextElement, idx: number) => (
+                                <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
+                                  <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div className="col-span-2">
+                                      <span className="font-medium">Text:</span> {textElem.text}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Page:</span> {textElem.page || 'N/A'}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Confidence:</span> {textElem.confidence.toFixed(2)}%
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Position:</span> ({textElem.x}, {textElem.y})
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Size:</span> {textElem.width} × {textElem.height}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="pt-3 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const dataStr = JSON.stringify(file.textElements, null, 2);
+                                  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                                  const url = URL.createObjectURL(dataBlob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${file.name}-text.json`;
+                                  link.click();
+                                  URL.revokeObjectURL(url);
+                                  toast.success('Text elements JSON downloaded');
+                                }}
+                              >
+                                Download Text Elements JSON
                               </Button>
                             </div>
                           </div>
