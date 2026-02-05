@@ -27,21 +27,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[detect-fillable-areas] PDF URL: ${pdfUrl}`);
     console.log(`[detect-fillable-areas] Detection params:`, { cannyLow, cannyHigh, houghThreshold, minLineLength, maxLineGap, minWidth });
 
-    const response = await fetch(`${RAILWAY_SERVICE_URL}/detect-fillable-areas`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        pdfUrl,
-        ...(cannyLow !== undefined && { cannyLow }),
-        ...(cannyHigh !== undefined && { cannyHigh }),
-        ...(houghThreshold !== undefined && { houghThreshold }),
-        ...(minLineLength !== undefined && { minLineLength }),
-        ...(maxLineGap !== undefined && { maxLineGap }),
-        ...(minWidth !== undefined && { minWidth }),
-      }),
-    });
+    let response;
+    try {
+      response = await fetch(`${RAILWAY_SERVICE_URL}/detect-fillable-areas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfUrl,
+          ...(cannyLow !== undefined && { cannyLow }),
+          ...(cannyHigh !== undefined && { cannyHigh }),
+          ...(houghThreshold !== undefined && { houghThreshold }),
+          ...(minLineLength !== undefined && { minLineLength }),
+          ...(maxLineGap !== undefined && { maxLineGap }),
+          ...(minWidth !== undefined && { minWidth }),
+        }),
+      });
+    } catch (fetchError) {
+      console.error('[detect-fillable-areas] Fetch error:', fetchError);
+      throw new Error(`Failed to connect to Railway service: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+    }
 
     console.log(`[detect-fillable-areas] Railway response status: ${response.status}`);
 
@@ -65,10 +71,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(data);
   } catch (error) {
     console.error('[detect-fillable-areas] Error:', error);
+    console.error('[detect-fillable-areas] Error type:', typeof error);
+    console.error('[detect-fillable-areas] Error details:', JSON.stringify(error, null, 2));
+
+    let errorMessage = 'Unknown error';
+    let errorDetails;
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorDetails = error.stack;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object') {
+      errorMessage = JSON.stringify(error);
+    }
+
     return res.status(500).json({
       error: 'Fillable area detection failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      details: error instanceof Error ? error.stack : undefined,
+      message: errorMessage,
+      details: errorDetails,
+      rawError: String(error),
     });
   }
 }
