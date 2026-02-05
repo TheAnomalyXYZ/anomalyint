@@ -725,25 +725,25 @@ export function Clerk() {
       return;
     }
 
-    // Check if knowledge base is selected
-    if (!selectedCorpusId) {
-      toast.error('Please select a knowledge base before using "Fill with AI".');
-      return;
-    }
-
-    setCurrentFile(file);
-    setChatOpen(true);
-    setChatMessages([]);
-    setChatInput("");
-
     if (!openaiClient.current) {
       toast.error('OpenAI API key not configured');
       return;
     }
 
+    // Open dialog immediately - let user select corpus in the modal
+    setCurrentFile(file);
+    setChatOpen(true);
+    setChatMessages([]);
+    setChatInput("");
+  };
+
+  // New function to start the chat after corpus is selected
+  const handleStartChat = async () => {
+    if (!currentFile || !selectedCorpusId) return;
+
     // Generate initial greeting with document summary
-    const formattedText = formatTextElements(file.textElements);
-    const formattedLines = file.lineFields ? formatLineFields(file.lineFields) : '';
+    const formattedText = formatTextElements(currentFile.textElements!);
+    const formattedLines = currentFile.lineFields ? formatLineFields(currentFile.lineFields) : '';
 
     try {
       // Retrieve relevant chunks from knowledge corpus if selected
@@ -792,7 +792,7 @@ export function Clerk() {
         ? `\n\nYou have access to a knowledge base with relevant information. Use the knowledge base context provided to give accurate, informed responses when filling forms or answering questions about the document.`
         : '';
 
-      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates${file.lineFields ? ', and detected fillable line fields' : ''}.${corpusContext}
+      const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates${currentFile.lineFields ? ', and detected fillable line fields' : ''}.${corpusContext}
 
 Your role:
 1. Analyze the document structure and understand what type of form it is
@@ -815,7 +815,7 @@ Be conversational, helpful, and concise.`;
 
       userPrompt += `\n\nGive me a summary of what this document is and what fields need to be filled.`;
 
-      const tools: OpenAI.Chat.ChatCompletionTool[] = file.lineFields ? [{
+      const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [{
         type: 'function',
         function: {
           name: 'fill_form_field',
@@ -864,7 +864,7 @@ Be conversational, helpful, and concise.`;
           if (toolCall.function.name === 'fill_form_field') {
             try {
               const args = JSON.parse(toolCall.function.arguments);
-              const field = file.lineFields![args.fieldIndex];
+              const field = currentFile.lineFields![args.fieldIndex];
 
               if (field) {
                 fills.push({
@@ -889,7 +889,7 @@ Be conversational, helpful, and concise.`;
         if (fills.length > 0) {
           setCurrentFile(prev => prev ? { ...prev, suggestedFills: fills } : null);
           setFiles(prev => prev.map(f =>
-            f.id === file.id ? { ...f, suggestedFills: fills } : f
+            f.id === currentFile.id ? { ...f, suggestedFills: fills } : f
           ));
           toast.success(`AI suggested ${fills.length} field fills`);
         }
@@ -906,7 +906,7 @@ Be conversational, helpful, and concise.`;
       toast.error('Failed to generate document summary');
       setChatMessages([{
         role: 'assistant',
-        content: `I'm ready to help you with ${file.name}. I detected ${file.textElements.length} text elements. What would you like to know?`
+        content: `I'm ready to help you with ${currentFile.name}. I detected ${currentFile.textElements!.length} text elements. What would you like to know?`
       }]);
     }
   };
@@ -1095,50 +1095,6 @@ Help the user understand the document and assist with form filling. When the use
         title="Clerk"
         description="Upload and manage PDF documents for AI-powered form filling"
       />
-
-      {/* Knowledge Base Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Knowledge Base</CardTitle>
-          <CardDescription>
-            Select a knowledge base to use for AI-powered form filling with RAG
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="corpus-select">Knowledge Base</Label>
-            <Select value={selectedCorpusId} onValueChange={setSelectedCorpusId}>
-              <SelectTrigger id="corpus-select">
-                <SelectValue placeholder="Select a knowledge base" />
-              </SelectTrigger>
-              <SelectContent>
-                {corpora.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    No knowledge bases available
-                  </SelectItem>
-                ) : (
-                  corpora.map((corpus) => (
-                    <SelectItem key={corpus.id} value={corpus.id}>
-                      {corpus.name}
-                      {corpus.brand_profile?.name && ` (${corpus.brand_profile.name})`}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            {selectedCorpusId && (
-              <p className="text-sm text-green-600">
-                ✓ Knowledge base selected: {corpora.find(c => c.id === selectedCorpusId)?.name}
-              </p>
-            )}
-            {!selectedCorpusId && corpora.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Select a knowledge base to enable "Fill with AI" feature
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Line Detection Settings */}
       <Card>
@@ -1766,26 +1722,28 @@ Help the user understand the document and assist with form filling. When the use
               </div>
             </div>
 
-            {/* Knowledge Base Selector */}
+            {/* Knowledge Base Selector - Required */}
             {corpora.length > 0 && (
               <div className="mt-4">
-                <Label className="text-sm font-medium mb-2 block">Knowledge Base</Label>
+                <Label className="text-sm font-medium mb-2 block">
+                  Knowledge Base <span className="text-red-500">*</span>
+                </Label>
                 <Select value={selectedCorpusId} onValueChange={setSelectedCorpusId}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a knowledge base" />
+                    <SelectValue placeholder="Select a knowledge base to continue" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None (General AI)</SelectItem>
                     {corpora.map((corpus) => (
                       <SelectItem key={corpus.id} value={corpus.id}>
                         {corpus.name}
+                        {corpus.brand_profile?.name && ` (${corpus.brand_profile.name})`}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedCorpusId && selectedCorpusId !== 'none' && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Responses will use knowledge from the selected corpus
+                {selectedCorpusId && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Will use knowledge from: {corpora.find(c => c.id === selectedCorpusId)?.name}
                   </p>
                 )}
               </div>
@@ -1797,10 +1755,21 @@ Help the user understand the document and assist with form filling. When the use
             {chatMessages.length === 0 ? (
               <div className="text-center py-12">
                 <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Analyzing document...</h3>
-                <p className="text-muted-foreground">
-                  Please wait while I understand your document
+                <h3 className="text-lg font-semibold mb-2">Ready to Analyze</h3>
+                <p className="text-muted-foreground mb-6">
+                  {!selectedCorpusId
+                    ? 'Select a knowledge base above to continue'
+                    : 'Click "Start Chat" below to analyze your document with AI'}
                 </p>
+                {selectedCorpusId && (
+                  <Button
+                    onClick={handleStartChat}
+                    className="gradient-primary text-white"
+                  >
+                    <Brain className="h-4 w-4 mr-2" />
+                    Start Chat
+                  </Button>
+                )}
               </div>
             ) : (
               chatMessages.map((message, index) => (
@@ -1843,7 +1812,7 @@ Help the user understand the document and assist with form filling. When the use
           <div className="p-4 border-t bg-slate-50">
             <div className="flex gap-2">
               <Input
-                placeholder="Ask about the document or request form filling..."
+                placeholder={chatMessages.length === 0 ? "Start chat first..." : "Ask about the document or request form filling..."}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1852,18 +1821,21 @@ Help the user understand the document and assist with form filling. When the use
                     handleSendMessage();
                   }
                 }}
+                disabled={chatMessages.length === 0}
                 className="flex-1 bg-white"
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!chatInput.trim()}
+                disabled={!chatInput.trim() || chatMessages.length === 0}
                 className="gradient-primary text-white border-0"
               >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Press Enter to send, Shift+Enter for new line
+              {chatMessages.length === 0
+                ? 'Select a knowledge base and click "Start Chat" to begin'
+                : 'Press Enter to send, Shift+Enter for new line'}
             </p>
           </div>
         </DialogContent>
