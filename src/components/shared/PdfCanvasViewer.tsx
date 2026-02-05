@@ -73,7 +73,7 @@ export function PdfCanvasViewer({
 
   // Drawing tools state
   const [currentTool, setCurrentTool] = useState<DrawingTool>('move');
-  const [drawingElements, setDrawingElements] = useState<DrawingElement[]>(initialDrawingElements);
+  const [drawingElements, setDrawingElements] = useState<DrawingElement[]>([]);
   const [currentDrawing, setCurrentDrawing] = useState<Partial<DrawingElement> | null>(null);
   const [selectedColor, setSelectedColor] = useState('#ef4444');
   const [fontSize, setFontSize] = useState(14);
@@ -82,13 +82,99 @@ export function PdfCanvasViewer({
   const [isDrawing, setIsDrawing] = useState(false);
   const [draggingElementId, setDraggingElementId] = useState<string | null>(null);
   const [aiFillsFontSize, setAiFillsFontSize] = useState(12); // AI suggested fills font size (reduced from 14)
+  const [elementsConverted, setElementsConverted] = useState(false); // Track if initial elements were converted
+
+  // Convert initial drawing elements from detection space to canvas space on load
+  useEffect(() => {
+    if (!elementsConverted && scale > 0 && initialDrawingElements.length > 0) {
+      const detectionScale = 2; // Matrix(2, 2) from Python service
+      const detectionToCanvasScale = scale / detectionScale;
+
+      // Convert all drawing elements from detection space to canvas space
+      const convertedElements = initialDrawingElements.map(element => {
+        const converted: any = {
+          ...element,
+          x: element.x * detectionToCanvasScale,
+          y: element.y * detectionToCanvasScale,
+        };
+
+        // Convert width/height for shapes
+        if (element.width !== undefined) {
+          converted.width = element.width * detectionToCanvasScale;
+        }
+        if (element.height !== undefined) {
+          converted.height = element.height * detectionToCanvasScale;
+        }
+
+        // Convert endX/endY for lines and arrows
+        if (element.endX !== undefined) {
+          converted.endX = element.endX * detectionToCanvasScale;
+        }
+        if (element.endY !== undefined) {
+          converted.endY = element.endY * detectionToCanvasScale;
+        }
+
+        // Convert points for pen tool
+        if (element.points) {
+          converted.points = element.points.map(p => ({
+            x: p.x * detectionToCanvasScale,
+            y: p.y * detectionToCanvasScale
+          }));
+        }
+
+        return converted;
+      });
+
+      setDrawingElements(convertedElements);
+      setElementsConverted(true);
+    }
+  }, [initialDrawingElements, scale, elementsConverted]);
 
   // Notify parent when drawing elements change
+  // Convert from canvas coordinates to detection coordinates (2x scale) before saving
   useEffect(() => {
-    if (onDrawingElementsUpdate && drawingElements.length > 0) {
-      onDrawingElementsUpdate(drawingElements);
+    if (onDrawingElementsUpdate && drawingElements.length > 0 && scale > 0 && elementsConverted) {
+      const detectionScale = 2; // Matrix(2, 2) from Python service
+      const canvasToDetectionScale = detectionScale / scale;
+
+      // Convert all drawing elements from canvas space to detection space
+      const convertedElements = drawingElements.map(element => {
+        const converted: any = {
+          ...element,
+          x: element.x * canvasToDetectionScale,
+          y: element.y * canvasToDetectionScale,
+        };
+
+        // Convert width/height for shapes
+        if (element.width !== undefined) {
+          converted.width = element.width * canvasToDetectionScale;
+        }
+        if (element.height !== undefined) {
+          converted.height = element.height * canvasToDetectionScale;
+        }
+
+        // Convert endX/endY for lines and arrows
+        if (element.endX !== undefined) {
+          converted.endX = element.endX * canvasToDetectionScale;
+        }
+        if (element.endY !== undefined) {
+          converted.endY = element.endY * canvasToDetectionScale;
+        }
+
+        // Convert points for pen tool
+        if (element.points) {
+          converted.points = element.points.map(p => ({
+            x: p.x * canvasToDetectionScale,
+            y: p.y * canvasToDetectionScale
+          }));
+        }
+
+        return converted;
+      });
+
+      onDrawingElementsUpdate(convertedElements);
     }
-  }, [drawingElements]);
+  }, [drawingElements, scale, elementsConverted]);
 
   // Render PDF to canvas
   useEffect(() => {
