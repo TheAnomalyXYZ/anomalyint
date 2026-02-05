@@ -83,6 +83,7 @@ export function PdfCanvasViewer({
   const [draggingElementId, setDraggingElementId] = useState<string | null>(null);
   const [aiFillsFontSize, setAiFillsFontSize] = useState(12); // AI suggested fills font size (reduced from 14)
   const [elementsConverted, setElementsConverted] = useState(false); // Track if initial elements were converted
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the initial load to prevent auto-save
 
   // Convert initial drawing elements from detection space to canvas space on load
   useEffect(() => {
@@ -131,13 +132,18 @@ export function PdfCanvasViewer({
       // Mark as converted even if there are no initial elements
       // This allows new annotations to be saved properly
       setElementsConverted(true);
+
+      // After initial conversion, allow saves for subsequent user changes
+      // Use setTimeout to ensure this runs after the state update
+      setTimeout(() => setIsInitialLoad(false), 0);
     }
   }, [initialDrawingElements, scale, elementsConverted]);
 
   // Notify parent when drawing elements change
   // Convert from canvas coordinates to detection coordinates (2x scale) before saving
   useEffect(() => {
-    if (onDrawingElementsUpdate && drawingElements.length > 0 && scale > 0 && elementsConverted) {
+    // Don't save during initial load to prevent coordinate drift
+    if (onDrawingElementsUpdate && drawingElements.length > 0 && scale > 0 && elementsConverted && !isInitialLoad) {
       const detectionScale = 2; // Matrix(2, 2) from Python service
       const canvasToDetectionScale = detectionScale / scale;
 
@@ -178,7 +184,7 @@ export function PdfCanvasViewer({
 
       onDrawingElementsUpdate(convertedElements);
     }
-  }, [drawingElements, scale, elementsConverted]);
+  }, [drawingElements, scale, elementsConverted, isInitialLoad]);
 
   // Render PDF to canvas
   useEffect(() => {
