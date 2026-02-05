@@ -880,11 +880,12 @@ async def generate_filled_pdf(request: GenerateFilledPdfRequest):
                     # PyMuPDF insert_text uses baseline, so we need to:
                     # 1. Subtract to move up from the line
                     # 2. Account for text height
-                    padding = 2  # Small padding above the line
+                    y_padding = 2  # Small padding above the line
+                    x_offset = 3  # Remove inherent left padding from PyMuPDF rendering
                     text_height = font_size + 6  # Match frontend: aiFillsFontSize + 6
 
-                    text_x = x
-                    text_y = y - padding  # Position baseline just above the line
+                    text_x = x - x_offset  # Remove left padding
+                    text_y = y - y_padding  # Position baseline just above the line
 
                     page.insert_text(
                         fitz.Point(text_x, text_y),
