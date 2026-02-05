@@ -22,6 +22,8 @@ interface PdfCanvasViewerProps {
   suggestedFills: FieldFill[];
   pageNumber?: number;
   onFillsUpdate?: (fills: FieldFill[]) => void;
+  drawingElements?: DrawingElement[];
+  onDrawingElementsUpdate?: (elements: DrawingElement[]) => void;
 }
 
 interface OverlayBox {
@@ -54,7 +56,9 @@ export function PdfCanvasViewer({
   pdfUrl,
   suggestedFills,
   pageNumber = 1,
-  onFillsUpdate
+  onFillsUpdate,
+  drawingElements: initialDrawingElements = [],
+  onDrawingElementsUpdate
 }: PdfCanvasViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -69,13 +73,22 @@ export function PdfCanvasViewer({
 
   // Drawing tools state
   const [currentTool, setCurrentTool] = useState<DrawingTool>('move');
-  const [drawingElements, setDrawingElements] = useState<DrawingElement[]>([]);
+  const [drawingElements, setDrawingElements] = useState<DrawingElement[]>(initialDrawingElements);
   const [currentDrawing, setCurrentDrawing] = useState<Partial<DrawingElement> | null>(null);
   const [selectedColor, setSelectedColor] = useState('#ef4444');
-  const [fontSize, setFontSize] = useState(16);
+  const [fontSize, setFontSize] = useState(14);
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [draggingElementId, setDraggingElementId] = useState<string | null>(null);
+  const [aiFillsFontSize, setAiFillsFontSize] = useState(12); // AI suggested fills font size (reduced from 14)
+
+  // Notify parent when drawing elements change
+  useEffect(() => {
+    if (onDrawingElementsUpdate && drawingElements.length > 0) {
+      onDrawingElementsUpdate(drawingElements);
+    }
+  }, [drawingElements]);
 
   // Render PDF to canvas
   useEffect(() => {
@@ -143,13 +156,17 @@ export function PdfCanvasViewer({
         const fillsForPage = suggestedFills.filter(fill => fill.page === pageNumber);
         console.log('[PdfCanvasViewer] Processing', fillsForPage.length, 'fills for page', pageNumber);
         const boxes: OverlayBox[] = fillsForPage.map((fill, idx) => {
-          const canvasX = fill.x * calculatedScale;
-          const canvasY = scaledViewport.height - (fill.y * calculatedScale);
+          // Coordinates come from detection at 2x scale (Matrix(2, 2) in Python)
+          // Convert: image coords (2x) -> PDF points (÷2) -> canvas pixels (×calculatedScale)
+          const detectionScale = 2; // Matrix(2, 2) from Python service
+          const pdfToCanvasScale = calculatedScale / detectionScale;
+          const canvasX = fill.x * pdfToCanvasScale;
+          const canvasY = fill.y * pdfToCanvasScale;
 
-          context.font = '14px Arial';
+          context.font = `${aiFillsFontSize}px Arial`;
           const textMetrics = context.measureText(fill.value);
           const textWidth = textMetrics.width;
-          const textHeight = 20;
+          const textHeight = aiFillsFontSize + 6;
           const padding = 8;
 
           return {
@@ -230,8 +247,9 @@ export function PdfCanvasViewer({
 
       // Draw text
       context.fillStyle = '#1e40af';
-      context.font = 'bold 14px Arial';
+      context.font = `bold ${aiFillsFontSize}px Arial`;
       context.textBaseline = 'top';
+      context.textAlign = 'left'; // Reset alignment to prevent state persistence
       const padding = 8;
       context.fillText(fill.value, box.x + padding, box.y + padding);
 
@@ -253,6 +271,8 @@ export function PdfCanvasViewer({
         context.textAlign = 'right';
         context.textBaseline = 'top';
         context.fillText('⊕', box.x + box.width - 5, box.y + 5);
+        // Reset text alignment back to default
+        context.textAlign = 'left';
       }
     });
 
@@ -387,7 +407,7 @@ export function PdfCanvasViewer({
           break;
       }
     }
-  }, [suggestedFills, overlayBoxes, pageNumber, hoveredIndex, draggingIndex, drawingElements, currentDrawing, selectedElementId, selectedColor, strokeWidth]);
+  }, [suggestedFills, overlayBoxes, pageNumber, hoveredIndex, draggingIndex, drawingElements, currentDrawing, selectedElementId, selectedColor, strokeWidth, aiFillsFontSize]);
 
   // Mouse event handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -416,13 +436,13 @@ export function PdfCanvasViewer({
         }
       }
 
-      // Check if clicking on a drawing element for selection
+      // Check if clicking on a drawing element for selection and dragging
       for (const element of [...drawingElements].reverse()) {
         let isInside = false;
         if (element.type === 'text') {
-          const textWidth = (element.text || '').length * (element.fontSize || 16) * 0.6;
+          const textWidth = (element.text || '').length * (element.fontSize || 14) * 0.6;
           isInside = mouseX >= element.x && mouseX <= element.x + textWidth &&
-                     mouseY >= element.y && mouseY <= element.y + (element.fontSize || 16);
+                     mouseY >= element.y && mouseY <= element.y + (element.fontSize || 14);
         } else if (element.type === 'rectangle') {
           isInside = mouseX >= element.x && mouseX <= element.x + (element.width || 0) &&
                      mouseY >= element.y && mouseY <= element.y + (element.height || 0);
@@ -437,6 +457,11 @@ export function PdfCanvasViewer({
 
         if (isInside) {
           setSelectedElementId(element.id);
+          setDraggingElementId(element.id);
+          setDragOffset({
+            x: mouseX - element.x,
+            y: mouseY - element.y
+          });
           return;
         }
       }
@@ -504,6 +529,33 @@ export function PdfCanvasViewer({
       return;
     }
 
+    // Handle drawing element dragging
+    if (draggingElementId !== null) {
+      setDrawingElements(prev => prev.map(el => {
+        if (el.id === draggingElementId) {
+          const newX = mouseX - dragOffset.x;
+          const newY = mouseY - dragOffset.y;
+
+          // For shapes with width/height, we need to adjust endX/endY
+          if (el.type === 'line' || el.type === 'arrow') {
+            const deltaX = newX - el.x;
+            const deltaY = newY - el.y;
+            return {
+              ...el,
+              x: newX,
+              y: newY,
+              endX: (el.endX || 0) + deltaX,
+              endY: (el.endY || 0) + deltaY
+            };
+          }
+
+          return { ...el, x: newX, y: newY };
+        }
+        return el;
+      }));
+      return;
+    }
+
     // Handle drawing
     if (isDrawing && currentDrawing) {
       if (currentDrawing.type === 'pen') {
@@ -559,9 +611,12 @@ export function PdfCanvasViewer({
       const padding = 8;
       const textHeight = 20;
 
-      // PDF coordinates (origin at bottom-left)
-      const pdfX = (box.x + padding) / scale;
-      const pdfY = (overlayCanvasRef.current.height - (box.y + textHeight + padding)) / scale;
+      // Convert back: canvas pixels -> image coords at 2x scale
+      // Reverse of: canvasX = fill.x * (scale / 2)
+      // Therefore: fill.x = canvasX * (2 / scale)
+      const detectionScale = 2;
+      const pdfX = (box.x + padding) * detectionScale / scale;
+      const pdfY = (box.y + textHeight + padding) * detectionScale / scale;
 
       // Update the fill with new coordinates
       const fillsForPage = suggestedFills.filter(fill => fill.page === pageNumber);
@@ -580,6 +635,12 @@ export function PdfCanvasViewer({
     }
 
     setDraggingIndex(null);
+
+    // Handle drawing element dragging completion
+    if (draggingElementId !== null && onDrawingElementsUpdate) {
+      onDrawingElementsUpdate(drawingElements);
+    }
+    setDraggingElementId(null);
 
     // Handle drawing completion
     if (isDrawing && currentDrawing) {
@@ -743,6 +804,26 @@ export function PdfCanvasViewer({
               <option value={3}>3px</option>
               <option value={4}>4px</option>
               <option value={5}>5px</option>
+            </select>
+          </div>
+        )}
+
+        {/* AI Fills Font Size Control */}
+        {suggestedFills.filter(f => f.page === pageNumber).length > 0 && (
+          <div className="flex items-center gap-2 border-r pr-2">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">AI Text Size:</span>
+            <select
+              value={aiFillsFontSize}
+              onChange={(e) => setAiFillsFontSize(Number(e.target.value))}
+              className="h-8 px-2 text-sm rounded border bg-white dark:bg-gray-800"
+            >
+              <option value={8}>8px</option>
+              <option value={10}>10px</option>
+              <option value={12}>12px</option>
+              <option value={14}>14px</option>
+              <option value={16}>16px</option>
+              <option value={18}>18px</option>
+              <option value={20}>20px</option>
             </select>
           </div>
         )}
