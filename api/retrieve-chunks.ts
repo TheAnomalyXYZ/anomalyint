@@ -40,6 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const embeddingResponse = await openai.embeddings.create({
       model: 'text-embedding-3-large',
       input: query,
+      dimensions: 1536, // Use 1536 dimensions for HNSW index compatibility
     });
 
     const queryEmbedding = embeddingResponse.data[0].embedding;

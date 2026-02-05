@@ -61,6 +61,7 @@ export class EmbeddingService {
           model,
           input: batch,
           encoding_format: 'float',
+          dimensions: 1536, // Use 1536 dimensions for HNSW index compatibility
         });
 
         allEmbeddings.push(...response.data.map(d => d.embedding));
