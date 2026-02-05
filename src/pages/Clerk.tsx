@@ -799,12 +799,12 @@ Your role:
 1. FIRST: Identify the document by reading its title/header in the Text Elements - this is the SOURCE OF TRUTH
 2. Analyze the document structure and understand what type of form it is
 3. Help users understand what information is needed
-4. IMMEDIATELY use the fill_form_field function to suggest values for ALL fillable fields using information from the knowledge base
-5. You MUST call fill_form_field for every field you can fill with information from the knowledge base
+4. When the user explicitly asks you to fill fields, use the fill_form_field function to suggest values using information from the knowledge base
+5. Only use fill_form_field when the user requests it
 
 CRITICAL: The document's own text is ALWAYS correct. The knowledge base is only supplementary reference material.
 
-Be conversational, helpful, and concise. ALWAYS attempt to fill fields automatically.`;
+Be conversational, helpful, and concise.`;
 
       // Build user prompt with knowledge base BEFORE document text (gives document recency bias)
       let userPrompt = '';
@@ -819,13 +819,7 @@ Be conversational, helpful, and concise. ALWAYS attempt to fill fields automatic
         userPrompt += `\n\n### Fillable Line Fields:\n${formattedLines}`;
       }
 
-      userPrompt += `\n\nTask:
-1. First, identify what company or organization this document is from (based on the document's title/header)
-2. Provide a brief summary of what this document is
-3. IMMEDIATELY fill ALL fields that you can with appropriate information from the knowledge base using the fill_form_field function
-4. Tell me which fields you filled and which ones you couldn't fill (and why)
-
-Start analyzing now and fill the fields.`;
+      userPrompt += `\n\nFirst, tell me: What company or organization is this document from (based on the document's title/header)? Then give me a summary of what this document is and what fields need to be filled.`;
 
       const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [{
         type: 'function',
