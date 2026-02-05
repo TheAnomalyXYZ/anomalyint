@@ -1,20 +1,23 @@
 -- Upgrade embedding model from text-embedding-3-small (1536) to text-embedding-3-large (3072)
 -- IMPORTANT: Run this AFTER updating the code to use text-embedding-3-large
--- IMPORTANT: You will need to re-ingest all documents after running this migration
+-- IMPORTANT: This will DELETE ALL EXISTING CHUNKS - you will need to re-ingest all documents
 
 -- Step 1: Drop the existing HNSW index (it's tied to the vector dimension)
 DROP INDEX IF EXISTS idx_chunks_embedding;
 
--- Step 2: Alter the embedding column to use the new vector dimension
+-- Step 2: Delete all existing chunks (they're 1536-dimensional and incompatible)
+DELETE FROM chunks;
+
+-- Step 3: Alter the embedding column to use the new vector dimension
 ALTER TABLE chunks
   ALTER COLUMN embedding TYPE vector(3072);
 
--- Step 3: Recreate the HNSW index with the new dimension
+-- Step 4: Recreate the HNSW index with the new dimension
 CREATE INDEX idx_chunks_embedding ON chunks
   USING hnsw (embedding vector_cosine_ops)
   WITH (m = 16, ef_construction = 64);
 
--- Step 4: Update the match_chunks function to use vector(3072)
+-- Step 5: Update the match_chunks function to use vector(3072)
 CREATE OR REPLACE FUNCTION match_chunks(
   query_embedding vector(3072),
   filter_corpus_id VARCHAR(36),
