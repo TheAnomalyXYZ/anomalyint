@@ -220,7 +220,7 @@ export function Profiles() {
         <div>
           <h1 className="text-3xl flex items-center gap-3">
             <Building2 className="h-8 w-8" />
-            Brand Profiles
+            Profiles
           </h1>
           <p className="text-muted-foreground mt-1">
             Manage multiple brand profiles for AI-generated content
@@ -320,7 +320,7 @@ export function Profiles() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="brandDescription">Brand Description</Label>
+                  <Label htmlFor="brandDescription">Description</Label>
                   <Textarea
                     id="brandDescription"
                     value={selectedProfile.brandDescription}
