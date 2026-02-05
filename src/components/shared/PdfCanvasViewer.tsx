@@ -51,10 +51,22 @@ export function PdfCanvasViewer({
   // Render PDF to canvas
   useEffect(() => {
     let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 10;
 
     const renderPdf = async () => {
       if (!canvasRef.current || !containerRef.current) {
-        console.log('[PdfCanvasViewer] Canvas refs not ready');
+        console.log('[PdfCanvasViewer] Canvas refs not ready, retry', retryCount);
+
+        // Retry after a short delay
+        if (retryCount < maxRetries && isMounted) {
+          retryCount++;
+          setTimeout(renderPdf, 100);
+        } else {
+          console.error('[PdfCanvasViewer] Canvas refs never became ready after', maxRetries, 'retries');
+          setLoading(false);
+          setError('Failed to initialize PDF viewer');
+        }
         return;
       }
 
