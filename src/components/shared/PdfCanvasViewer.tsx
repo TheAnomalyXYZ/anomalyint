@@ -53,18 +53,25 @@ export function PdfCanvasViewer({
     let isMounted = true;
 
     const renderPdf = async () => {
-      if (!canvasRef.current || !containerRef.current) return;
+      if (!canvasRef.current || !containerRef.current) {
+        console.log('[PdfCanvasViewer] Canvas refs not ready');
+        return;
+      }
 
+      console.log('[PdfCanvasViewer] Starting PDF render:', pdfUrl);
       setLoading(true);
       setError(null);
 
       try {
+        console.log('[PdfCanvasViewer] Loading PDF document...');
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
         const pdf = await loadingTask.promise;
+        console.log('[PdfCanvasViewer] PDF loaded, total pages:', pdf.numPages);
         const page = await pdf.getPage(pageNumber);
 
         if (!isMounted) return;
 
+        console.log('[PdfCanvasViewer] Getting page:', pageNumber);
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Could not get canvas context');
@@ -75,20 +82,25 @@ export function PdfCanvasViewer({
         const calculatedScale = (containerWidth - 32) / viewport.width;
         const scaledViewport = page.getViewport({ scale: calculatedScale });
 
+        console.log('[PdfCanvasViewer] Canvas dimensions:', scaledViewport.width, 'x', scaledViewport.height);
+
         // Set canvas dimensions
         canvas.height = scaledViewport.height;
         canvas.width = scaledViewport.width;
 
         // Render PDF
+        console.log('[PdfCanvasViewer] Rendering PDF to canvas...');
         await page.render({
           canvasContext: context,
           viewport: scaledViewport,
         }).promise;
+        console.log('[PdfCanvasViewer] PDF rendered successfully');
 
         if (!isMounted) return;
 
         // Calculate overlay boxes
         const fillsForPage = suggestedFills.filter(fill => fill.page === pageNumber);
+        console.log('[PdfCanvasViewer] Processing', fillsForPage.length, 'fills for page', pageNumber);
         const boxes: OverlayBox[] = fillsForPage.map((fill, idx) => {
           const canvasX = fill.x * calculatedScale;
           const canvasY = scaledViewport.height - (fill.y * calculatedScale);
@@ -110,9 +122,16 @@ export function PdfCanvasViewer({
 
         setOverlayBoxes(boxes);
         setScale(calculatedScale);
+        console.log('[PdfCanvasViewer] Render complete, setting loading to false');
         setLoading(false);
       } catch (err) {
-        console.error('Error rendering PDF:', err);
+        console.error('[PdfCanvasViewer] Error rendering PDF:', err);
+        console.error('[PdfCanvasViewer] Error details:', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          pdfUrl,
+          pageNumber
+        });
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Failed to render PDF');
           setLoading(false);
@@ -120,6 +139,7 @@ export function PdfCanvasViewer({
       }
     };
 
+    console.log('[PdfCanvasViewer] useEffect triggered, calling renderPdf');
     renderPdf();
 
     return () => {
