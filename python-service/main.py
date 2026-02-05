@@ -41,6 +41,11 @@ class AnnotatePdfRequest(BaseModel):
     pdfUrl: str
     fields: List[Dict[str, Any]]
 
+class GenerateFilledPdfRequest(BaseModel):
+    pdfUrl: str
+    suggestedFills: List[Dict[str, Any]] = []
+    drawingElements: List[Dict[str, Any]] = []
+
 @app.get("/")
 async def root():
     return {
@@ -51,7 +56,8 @@ async def root():
             "fill": "/fill-form",
             "detectFillableAreas": "/detect-fillable-areas",
             "detectTableCells": "/detect-table-cells",
-            "annotatePdf": "/annotate-pdf"
+            "annotatePdf": "/annotate-pdf",
+            "generateFilledPdf": "/generate-filled-pdf"
         }
     }
 
@@ -790,6 +796,236 @@ async def annotate_pdf(request: AnnotatePdfRequest):
         raise HTTPException(
             status_code=500,
             detail=f"PDF annotation failed: {str(e)}"
+        )
+
+@app.post("/generate-filled-pdf")
+async def generate_filled_pdf(request: GenerateFilledPdfRequest):
+    """
+    Generate a filled PDF with AI suggested fills and manual drawing annotations
+    """
+    try:
+        print(f"[generate-filled-pdf] Downloading PDF from: {request.pdfUrl}")
+        print(f"[generate-filled-pdf] Suggested fills: {len(request.suggestedFills)}")
+        print(f"[generate-filled-pdf] Drawing elements: {len(request.drawingElements)}")
+
+        # Download the PDF
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_input:
+            req = urllib.request.Request(
+                request.pdfUrl,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            )
+            with urllib.request.urlopen(req) as response:
+                temp_input.write(response.read())
+            temp_input_path = temp_input.name
+
+        # Create output file
+        temp_output = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        temp_output_path = temp_output.name
+        temp_output.close()
+
+        try:
+            # Open PDF
+            pdf_document = fitz.open(temp_input_path)
+
+            # Group fills and elements by page
+            fills_by_page = {}
+            for fill in request.suggestedFills:
+                page = fill.get('page', 1)
+                if page not in fills_by_page:
+                    fills_by_page[page] = []
+                fills_by_page[page].append(fill)
+
+            elements_by_page = {}
+            for element in request.drawingElements:
+                page = element.get('page', 1)
+                if page not in elements_by_page:
+                    elements_by_page[page] = []
+                elements_by_page[page].append(element)
+
+            # Process each page
+            for page_num in range(len(pdf_document)):
+                page = pdf_document[page_num]
+                page_number = page_num + 1
+                page_fills = fills_by_page.get(page_number, [])
+                page_elements = elements_by_page.get(page_number, [])
+
+                # Clean page contents to standardize orientation before drawing
+                page.clean_contents()
+
+                # Calculate scale factors (detection uses Matrix(2, 2))
+                page_rect = page.rect
+                page_width = page_rect.width
+                page_height = page_rect.height
+                detection_pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                pixmap_width = detection_pix.width
+                pixmap_height = detection_pix.height
+                scale_x = pixmap_width / page_width
+                scale_y = pixmap_height / page_height
+
+                print(f"[generate-filled-pdf] Page {page_number}: {len(page_fills)} fills, {len(page_elements)} elements")
+
+                # Render AI suggested fills
+                for fill in page_fills:
+                    # Convert from detection coordinates to PDF points
+                    x = fill['x'] / scale_x
+                    y = fill['y'] / scale_y
+                    width = fill.get('width', 0) / scale_x
+                    height = fill.get('height', 0) / scale_y
+                    value = fill.get('value', '')
+                    font_size = fill.get('fontSize', 12)
+
+                    # Insert text (PyMuPDF automatically handles text rendering)
+                    # Use a small padding from the top-left corner
+                    padding = 8 / scale_x  # Convert canvas padding to PDF points
+                    text_x = x + padding
+                    text_y = y + padding + font_size  # PyMuPDF text baseline is at bottom
+
+                    page.insert_text(
+                        fitz.Point(text_x, text_y),
+                        value,
+                        fontsize=font_size,
+                        color=(0.11764706, 0.25098039, 0.69019608)  # #1e40af in RGB
+                    )
+
+                # Render drawing elements
+                for element in page_elements:
+                    element_type = element.get('type')
+                    color_hex = element.get('color', '#000000')
+                    # Convert hex color to RGB tuple (0-1 range)
+                    color_hex = color_hex.lstrip('#')
+                    color_rgb = tuple(int(color_hex[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+                    stroke_width = element.get('strokeWidth', 2)
+
+                    # Convert coordinates from canvas space to PDF points
+                    # Drawing elements are in canvas coordinates, need to convert similarly
+                    # Assuming drawing elements are in the same coordinate space as detection
+                    x = element['x'] / scale_x
+                    y = element['y'] / scale_y
+
+                    if element_type == 'text':
+                        text = element.get('text', '')
+                        font_size = element.get('fontSize', 14)
+                        text_y = y + font_size  # Adjust for baseline
+                        page.insert_text(
+                            fitz.Point(x, text_y),
+                            text,
+                            fontsize=font_size,
+                            color=color_rgb
+                        )
+
+                    elif element_type == 'rectangle':
+                        width = element.get('width', 0) / scale_x
+                        height = element.get('height', 0) / scale_y
+                        rect = fitz.Rect(x, y, x + width, y + height)
+                        page.draw_rect(rect, color=color_rgb, width=stroke_width)
+
+                    elif element_type == 'circle':
+                        width = element.get('width', 0) / scale_x
+                        height = element.get('height', 0) / scale_y
+                        # Draw circle using center and radius
+                        center_x = x + width / 2
+                        center_y = y + height / 2
+                        radius = min(width, height) / 2
+                        # PyMuPDF doesn't have draw_circle, use draw_oval
+                        rect = fitz.Rect(x, y, x + width, y + height)
+                        page.draw_oval(rect, color=color_rgb, width=stroke_width)
+
+                    elif element_type == 'line':
+                        end_x = element.get('endX', x) / scale_x
+                        end_y = element.get('endY', y) / scale_y
+                        page.draw_line(
+                            fitz.Point(x, y),
+                            fitz.Point(end_x, end_y),
+                            color=color_rgb,
+                            width=stroke_width
+                        )
+
+                    elif element_type == 'arrow':
+                        end_x = element.get('endX', x) / scale_x
+                        end_y = element.get('endY', y) / scale_y
+                        # Draw line
+                        page.draw_line(
+                            fitz.Point(x, y),
+                            fitz.Point(end_x, end_y),
+                            color=color_rgb,
+                            width=stroke_width
+                        )
+                        # Draw arrowhead (simple triangle)
+                        import math
+                        arrow_length = 10
+                        angle = math.atan2(end_y - y, end_x - x)
+                        arrow_angle = math.pi / 6  # 30 degrees
+
+                        # Left arrow point
+                        left_x = end_x - arrow_length * math.cos(angle - arrow_angle)
+                        left_y = end_y - arrow_length * math.sin(angle - arrow_angle)
+                        # Right arrow point
+                        right_x = end_x - arrow_length * math.cos(angle + arrow_angle)
+                        right_y = end_y - arrow_length * math.sin(angle + arrow_angle)
+
+                        page.draw_line(
+                            fitz.Point(end_x, end_y),
+                            fitz.Point(left_x, left_y),
+                            color=color_rgb,
+                            width=stroke_width
+                        )
+                        page.draw_line(
+                            fitz.Point(end_x, end_y),
+                            fitz.Point(right_x, right_y),
+                            color=color_rgb,
+                            width=stroke_width
+                        )
+
+                    elif element_type == 'pen':
+                        points = element.get('points', [])
+                        if len(points) > 1:
+                            for i in range(len(points) - 1):
+                                p1_x = points[i]['x'] / scale_x
+                                p1_y = points[i]['y'] / scale_y
+                                p2_x = points[i + 1]['x'] / scale_x
+                                p2_y = points[i + 1]['y'] / scale_y
+                                page.draw_line(
+                                    fitz.Point(p1_x, p1_y),
+                                    fitz.Point(p2_x, p2_y),
+                                    color=color_rgb,
+                                    width=stroke_width
+                                )
+
+            # Save filled PDF
+            pdf_document.save(temp_output_path)
+            pdf_document.close()
+
+            # Read the filled PDF
+            with open(temp_output_path, 'rb') as f:
+                import base64
+                pdf_data = base64.b64encode(f.read()).decode('utf-8')
+
+            total_annotations = len(request.suggestedFills) + len(request.drawingElements)
+            return {
+                "success": True,
+                "message": "Filled PDF generated successfully",
+                "filledPdf": pdf_data,  # Base64 encoded PDF
+                "fillsRendered": len(request.suggestedFills),
+                "elementsRendered": len(request.drawingElements),
+                "totalAnnotations": total_annotations
+            }
+
+        finally:
+            # Clean up temporary files
+            if os.path.exists(temp_input_path):
+                os.unlink(temp_input_path)
+            if os.path.exists(temp_output_path):
+                os.unlink(temp_output_path)
+
+    except Exception as e:
+        print(f"[generate-filled-pdf] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Filled PDF generation failed: {str(e)}"
         )
 
 if __name__ == "__main__":

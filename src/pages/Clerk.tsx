@@ -45,6 +45,22 @@ interface FieldFill {
   page: number;
 }
 
+interface DrawingElement {
+  id: string;
+  type: 'text' | 'rectangle' | 'circle' | 'line' | 'arrow' | 'pen';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  endX?: number;
+  endY?: number;
+  points?: { x: number; y: number }[];
+  text?: string;
+  color: string;
+  fontSize?: number;
+  strokeWidth?: number;
+}
+
 interface UploadedFile {
   id: string;
   name: string;
@@ -60,6 +76,7 @@ interface UploadedFile {
   textElements?: TextElement[];
   totalPages?: number;
   suggestedFills?: FieldFill[];
+  drawingElements?: DrawingElement[];
 }
 
 interface LineDetectionParams {
@@ -85,6 +102,20 @@ export function Clerk() {
   const [selectedCorpusId, setSelectedCorpusId] = useState<string>("");
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfViewerFile, setPdfViewerFile] = useState<UploadedFile | null>(null);
+
+  // Track expanded sections per file: { [fileId]: { lineFields: boolean, tableFields: boolean, textElements: boolean } }
+  const [expandedSections, setExpandedSections] = useState<Record<string, Record<string, boolean>>>({});
+
+  // Toggle section expansion
+  const toggleSection = (fileId: string, section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [fileId]: {
+        ...prev[fileId],
+        [section]: !prev[fileId]?.[section]
+      }
+    }));
+  };
 
   // Initialize OpenAI client
   const openaiClient = useRef<OpenAI | null>(null);
@@ -151,6 +182,7 @@ export function Clerk() {
           tableFields: doc.table_fields,
           textElements: doc.text_elements,
           suggestedFills: doc.suggested_fills,
+          drawingElements: doc.drawing_elements || [],
           totalPages: doc.total_pages,
           filledUrl: doc.filled_url || undefined,
         }));
@@ -683,6 +715,55 @@ export function Clerk() {
     }
   };
 
+  const handleGenerateFilledPdf = async (file: UploadedFile) => {
+    try {
+      if ((!file.suggestedFills || file.suggestedFills.length === 0) &&
+          (!file.drawingElements || file.drawingElements.length === 0)) {
+        toast.error('No fills or annotations to generate. Please add AI fills or manual annotations first.');
+        return;
+      }
+
+      toast.info('Generating filled PDF...');
+
+      const response = await fetch('/api/clerk/generate-filled-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfUrl: file.url,
+          suggestedFills: file.suggestedFills || [],
+          drawingElements: file.drawingElements || [],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate filled PDF');
+      }
+
+      const data = await response.json();
+
+      const byteCharacters = atob(data.filledPdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      const fillCount = (file.suggestedFills?.length || 0) + (file.drawingElements?.length || 0);
+      toast.success(`Generated filled PDF with ${fillCount} annotations!`);
+    } catch (error) {
+      console.error('Fill generation error:', error);
+      toast.error('Failed to generate filled PDF');
+    }
+  };
+
   const handleDeleteFile = async (fileId: string, fileName: string) => {
     try {
       // Delete from database (this will cascade delete all associated data)
@@ -772,6 +853,41 @@ export function Clerk() {
     } catch (error) {
       console.error('Error updating fills:', error);
       toast.error('Failed to update overlay positions');
+    }
+  };
+
+  // Handle updates to drawing elements (manual annotations)
+  const handleDrawingElementsUpdate = async (fileId: string, updatedElements: DrawingElement[]) => {
+    try {
+      // Update local state
+      setFiles((prev: UploadedFile[]) => prev.map((f: UploadedFile) =>
+        f.id === fileId ? { ...f, drawingElements: updatedElements } : f
+      ));
+
+      if (currentFile?.id === fileId) {
+        setCurrentFile((prev: UploadedFile | null) => prev ? { ...prev, drawingElements: updatedElements } : null);
+      }
+
+      if (pdfViewerFile?.id === fileId) {
+        setPdfViewerFile((prev: UploadedFile | null) => prev ? { ...prev, drawingElements: updatedElements } : null);
+      }
+
+      // Save to database
+      const { error } = await supabase
+        .from('clerk_documents')
+        .update({
+          drawing_elements: updatedElements,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', fileId);
+
+      if (error) {
+        console.error('Failed to save drawing elements to database:', error);
+        toast.error('Failed to save annotations');
+      }
+    } catch (error) {
+      console.error('Error updating drawing elements:', error);
+      toast.error('Failed to update annotations');
     }
   };
 
@@ -1489,6 +1605,17 @@ Help the user understand the document and assist with form filling. When the use
                                 View Tables PDF ({file.tableFields.length})
                               </Button>
                             )}
+                            {((file.suggestedFills && file.suggestedFills.length > 0) ||
+                              (file.drawingElements && file.drawingElements.length > 0)) && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleGenerateFilledPdf(file)}
+                                className="bg-purple-600 hover:bg-purple-700 text-white"
+                              >
+                                Generate Filled PDF ({(file.suggestedFills?.length || 0) + (file.drawingElements?.length || 0)})
+                              </Button>
+                            )}
                             <Button
                               variant="default"
                               size="sm"
@@ -1567,13 +1694,24 @@ Help the user understand the document and assist with form filling. When the use
                         {/* Line Fields Section */}
                         {file.lineFields && file.lineFields.length > 0 && (
                           <div className="space-y-4">
-                            <div>
-                              <h4 className="font-semibold mb-2">Line Fields ({file.lineFields.length})</h4>
-                              <div className="text-sm text-muted-foreground mb-3">
-                                Horizontal line detections
+                            <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'lineFields')}>
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  Line Fields ({file.lineFields.length})
+                                  {expandedSections[file.id]?.lineFields ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </h4>
+                                <div className="text-sm text-muted-foreground mb-3">
+                                  Horizontal line detections
+                                </div>
                               </div>
                             </div>
 
+                            {expandedSections[file.id]?.lineFields && (
+                              <>
                             <div className="max-h-96 overflow-y-auto space-y-3">
                               {file.lineFields.map((field: any, idx: number) => (
                                 <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
@@ -1619,19 +1757,32 @@ Help the user understand the document and assist with form filling. When the use
                                 Download Line Fields JSON
                               </Button>
                             </div>
+                              </>
+                            )}
                           </div>
                         )}
 
                         {/* Table Fields Section */}
                         {file.tableFields && file.tableFields.length > 0 && (
                           <div className="space-y-4">
-                            <div>
-                              <h4 className="font-semibold mb-2">Table Cells ({file.tableFields.length})</h4>
-                              <div className="text-sm text-muted-foreground mb-3">
-                                Table structure detections
+                            <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'tableFields')}>
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  Table Cells ({file.tableFields.length})
+                                  {expandedSections[file.id]?.tableFields ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </h4>
+                                <div className="text-sm text-muted-foreground mb-3">
+                                  Table structure detections
+                                </div>
                               </div>
                             </div>
 
+                            {expandedSections[file.id]?.tableFields && (
+                              <>
                             <div className="max-h-96 overflow-y-auto space-y-3">
                               {file.tableFields.map((field: any, idx: number) => (
                                 <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
@@ -1677,19 +1828,32 @@ Help the user understand the document and assist with form filling. When the use
                                 Download Table Fields JSON
                               </Button>
                             </div>
+                              </>
+                            )}
                           </div>
                         )}
 
                         {/* Text Elements Section */}
                         {file.textElements && file.textElements.length > 0 && (
                           <div className="space-y-4">
-                            <div>
-                              <h4 className="font-semibold mb-2">Text Elements ({file.textElements.length})</h4>
-                              <div className="text-sm text-muted-foreground mb-3">
-                                OCR-detected text with coordinates
+                            <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'textElements')}>
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                  Text Elements ({file.textElements.length})
+                                  {expandedSections[file.id]?.textElements ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </h4>
+                                <div className="text-sm text-muted-foreground mb-3">
+                                  OCR-detected text with coordinates
+                                </div>
                               </div>
                             </div>
 
+                            {expandedSections[file.id]?.textElements && (
+                              <>
                             <div className="max-h-96 overflow-y-auto space-y-3">
                               {file.textElements.map((textElem: TextElement, idx: number) => (
                                 <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border">
@@ -1733,6 +1897,8 @@ Help the user understand the document and assist with form filling. When the use
                                 Download Text Elements JSON
                               </Button>
                             </div>
+                              </>
+                            )}
                           </div>
                         )}
 
@@ -1755,7 +1921,7 @@ Help the user understand the document and assist with form filling. When the use
                                     <div className="flex items-center gap-2">
                                       <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                                       <span className="font-medium text-green-700 dark:text-green-300">
-                                        Field {fill.fieldIndex}
+                                        Field {fill.fieldIndex + 1}
                                       </span>
                                       {fill.label && (
                                         <span className="text-xs text-muted-foreground">
@@ -1811,6 +1977,105 @@ Help the user understand the document and assist with form filling. When the use
                                 Apply Fills to PDF
                               </Button>
                             </div>
+                          </div>
+                        )}
+
+                        {/* Manual Annotations Section */}
+                        {file.drawingElements && file.drawingElements.length > 0 && (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'manualAnnotations')}>
+                              <div>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                                  Manual Annotations ({file.drawingElements.length})
+                                  {expandedSections[file.id]?.manualAnnotations ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </h4>
+                                <div className="text-sm text-muted-foreground mb-3">
+                                  User-created annotations and drawings
+                                </div>
+                              </div>
+                            </div>
+
+                            {expandedSections[file.id]?.manualAnnotations && (
+                              <>
+                            <div className="max-h-96 overflow-y-auto space-y-3">
+                              {file.drawingElements.map((element: DrawingElement, idx: number) => (
+                                <div key={idx} className="bg-purple-50 dark:bg-purple-950 p-3 rounded border border-purple-200 dark:border-purple-800">
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-purple-700 dark:text-purple-300 capitalize">
+                                        {element.type}
+                                      </span>
+                                      {element.text && (
+                                        <span className="text-xs text-muted-foreground">
+                                          "{element.text}"
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 pl-6">
+                                      <div>
+                                        <span className="font-medium">Position:</span> ({Math.round(element.x)}, {Math.round(element.y)})
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Color:</span>{' '}
+                                        <span
+                                          className="inline-block w-4 h-4 rounded border align-middle"
+                                          style={{ backgroundColor: element.color }}
+                                        />
+                                      </div>
+                                      {element.fontSize && (
+                                        <div>
+                                          <span className="font-medium">Font Size:</span> {element.fontSize}px
+                                        </div>
+                                      )}
+                                      {element.strokeWidth && (
+                                        <div>
+                                          <span className="font-medium">Stroke:</span> {element.strokeWidth}px
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="pt-3 border-t flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const dataStr = JSON.stringify(file.drawingElements, null, 2);
+                                  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                                  const url = URL.createObjectURL(dataBlob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `${file.name}-annotations.json`;
+                                  link.click();
+                                  URL.revokeObjectURL(url);
+                                  toast.success('Annotations JSON downloaded');
+                                }}
+                              >
+                                Download Annotations JSON
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm('Clear all manual annotations? This cannot be undone.')) {
+                                    await handleDrawingElementsUpdate(file.id, []);
+                                    toast.success('Annotations cleared');
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Clear All
+                              </Button>
+                            </div>
+                              </>
+                            )}
                           </div>
                         )}
 
@@ -1988,14 +2253,12 @@ Help the user understand the document and assist with form filling. When the use
                 pdfUrl={pdfViewerFile.url}
                 suggestedFills={pdfViewerFile.suggestedFills}
                 pageNumber={1}
+                drawingElements={pdfViewerFile.drawingElements || []}
                 onFillsUpdate={(updatedFills) => {
-                  // Update the file with new coordinates
-                  setFiles((prev: UploadedFile[]) => prev.map((f: UploadedFile) =>
-                    f.id === pdfViewerFile.id
-                      ? { ...f, suggestedFills: updatedFills }
-                      : f
-                  ));
-                  setPdfViewerFile({ ...pdfViewerFile, suggestedFills: updatedFills });
+                  handleFillsUpdate(pdfViewerFile.id, updatedFills);
+                }}
+                onDrawingElementsUpdate={(updatedElements) => {
+                  handleDrawingElementsUpdate(pdfViewerFile.id, updatedElements);
                 }}
               />
             )}
