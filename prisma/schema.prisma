@@ -537,6 +537,7 @@ model clerk_documents {
   line_fields     Json?
   table_fields    Json?
   text_elements   Json?
+  suggested_fills Json?
   total_pages     Int?
   filled_url      String?
   uploaded_at     DateTime             @default(now())

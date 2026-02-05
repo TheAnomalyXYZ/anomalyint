@@ -146,6 +146,7 @@ export function Clerk() {
           lineFields: doc.line_fields,
           tableFields: doc.table_fields,
           textElements: doc.text_elements,
+          suggestedFills: doc.suggested_fills,
           totalPages: doc.total_pages,
           filledUrl: doc.filled_url || undefined,
         }));
@@ -902,6 +903,24 @@ Start analyzing now and fill the fields.`;
           setFiles(prev => prev.map(f =>
             f.id === currentFile.id ? { ...f, suggestedFills: fills } : f
           ));
+
+          // Save suggestions to database
+          try {
+            const { error: dbError } = await supabase
+              .from('clerk_documents')
+              .update({
+                suggested_fills: fills,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', currentFile.id);
+
+            if (dbError) {
+              console.error('Failed to save suggestions to database:', dbError);
+            }
+          } catch (error) {
+            console.error('Error saving suggestions:', error);
+          }
+
           toast.success(`AI suggested ${fills.length} field fills`);
         }
 
@@ -1085,6 +1104,24 @@ Help the user understand the document and assist with form filling. When the use
           setFiles(prev => prev.map(f =>
             f.id === currentFile.id ? { ...f, suggestedFills: fills } : f
           ));
+
+          // Save suggestions to database
+          try {
+            const { error: dbError } = await supabase
+              .from('clerk_documents')
+              .update({
+                suggested_fills: fills,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', currentFile.id);
+
+            if (dbError) {
+              console.error('Failed to save suggestions to database:', dbError);
+            }
+          } catch (error) {
+            console.error('Error saving suggestions:', error);
+          }
+
           toast.success(`AI suggested fills for ${message.tool_calls.length} fields`);
         }
 
