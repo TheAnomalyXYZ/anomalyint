@@ -1693,10 +1693,10 @@ Help the user understand the document and assist with form filling. When the use
 
                         {/* Line Fields Section */}
                         {file.lineFields && file.lineFields.length > 0 && (
-                          <div className="space-y-4">
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'lineFields')}>
                               <div>
-                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <h4 className="font-semibold flex items-center gap-2">
                                   Line Fields ({file.lineFields.length})
                                   {expandedSections[file.id]?.lineFields ? (
                                     <ChevronUp className="h-4 w-4" />
@@ -1704,7 +1704,7 @@ Help the user understand the document and assist with form filling. When the use
                                     <ChevronDown className="h-4 w-4" />
                                   )}
                                 </h4>
-                                <div className="text-sm text-muted-foreground mb-3">
+                                <div className="text-sm text-muted-foreground">
                                   Horizontal line detections
                                 </div>
                               </div>
@@ -1764,10 +1764,10 @@ Help the user understand the document and assist with form filling. When the use
 
                         {/* Table Fields Section */}
                         {file.tableFields && file.tableFields.length > 0 && (
-                          <div className="space-y-4">
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'tableFields')}>
                               <div>
-                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <h4 className="font-semibold flex items-center gap-2">
                                   Table Cells ({file.tableFields.length})
                                   {expandedSections[file.id]?.tableFields ? (
                                     <ChevronUp className="h-4 w-4" />
@@ -1775,7 +1775,7 @@ Help the user understand the document and assist with form filling. When the use
                                     <ChevronDown className="h-4 w-4" />
                                   )}
                                 </h4>
-                                <div className="text-sm text-muted-foreground mb-3">
+                                <div className="text-sm text-muted-foreground">
                                   Table structure detections
                                 </div>
                               </div>
@@ -1835,10 +1835,10 @@ Help the user understand the document and assist with form filling. When the use
 
                         {/* Text Elements Section */}
                         {file.textElements && file.textElements.length > 0 && (
-                          <div className="space-y-4">
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'textElements')}>
                               <div>
-                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <h4 className="font-semibold flex items-center gap-2">
                                   Text Elements ({file.textElements.length})
                                   {expandedSections[file.id]?.textElements ? (
                                     <ChevronUp className="h-4 w-4" />
@@ -1846,7 +1846,7 @@ Help the user understand the document and assist with form filling. When the use
                                     <ChevronDown className="h-4 w-4" />
                                   )}
                                 </h4>
-                                <div className="text-sm text-muted-foreground mb-3">
+                                <div className="text-sm text-muted-foreground">
                                   OCR-detected text with coordinates
                                 </div>
                               </div>
@@ -1904,16 +1904,25 @@ Help the user understand the document and assist with form filling. When the use
 
                         {/* Suggested Fills Section */}
                         {file.suggestedFills && file.suggestedFills.length > 0 && (
-                          <div className="space-y-4">
-                            <div>
-                              <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
-                                AI Suggested Fills ({file.suggestedFills.length})
-                              </h4>
-                              <div className="text-sm text-muted-foreground mb-3">
-                                AI-generated field values with coordinates
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'suggestedFills')}>
+                              <div>
+                                <h4 className="font-semibold flex items-center gap-2 text-green-600 dark:text-green-400">
+                                  AI Suggested Fills ({file.suggestedFills.length})
+                                  {expandedSections[file.id]?.suggestedFills ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </h4>
+                                <div className="text-sm text-muted-foreground">
+                                  AI-generated field values with coordinates
+                                </div>
                               </div>
                             </div>
 
+                            {expandedSections[file.id]?.suggestedFills && (
+                              <>
                             <div className="max-h-96 overflow-y-auto space-y-3">
                               {file.suggestedFills.map((fill: FieldFill, idx: number) => (
                                 <div key={idx} className="bg-green-50 dark:bg-green-950 p-3 rounded border border-green-200 dark:border-green-800">
@@ -1977,15 +1986,17 @@ Help the user understand the document and assist with form filling. When the use
                                 Apply Fills to PDF
                               </Button>
                             </div>
+                              </>
+                            )}
                           </div>
                         )}
 
                         {/* Manual Annotations Section */}
                         {file.drawingElements && file.drawingElements.length > 0 && (
-                          <div className="space-y-4">
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection(file.id, 'manualAnnotations')}>
                               <div>
-                                <h4 className="font-semibold mb-2 flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                                <h4 className="font-semibold flex items-center gap-2 text-purple-600 dark:text-purple-400">
                                   Manual Annotations ({file.drawingElements.length})
                                   {expandedSections[file.id]?.manualAnnotations ? (
                                     <ChevronUp className="h-4 w-4" />
@@ -1993,7 +2004,7 @@ Help the user understand the document and assist with form filling. When the use
                                     <ChevronDown className="h-4 w-4" />
                                   )}
                                 </h4>
-                                <div className="text-sm text-muted-foreground mb-3">
+                                <div className="text-sm text-muted-foreground">
                                   User-created annotations and drawings
                                 </div>
                               </div>
