@@ -86,8 +86,11 @@ export function PdfCanvasViewer({
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the initial load to prevent auto-save
 
   // Convert initial drawing elements from detection space to canvas space on load
+  // IMPORTANT: Wait for PDF to finish loading so we have the correct calculated scale
   useEffect(() => {
-    if (!elementsConverted && scale > 0) {
+    if (!elementsConverted && !loading && scale > 0 && scale !== 1.5) {
+      // Only convert after PDF has loaded and scale has been calculated
+      // (initial scale is 1.5, calculated scale will be different)
       if (initialDrawingElements.length > 0) {
         const detectionScale = 2; // Matrix(2, 2) from Python service
         const detectionToCanvasScale = scale / detectionScale;
@@ -137,7 +140,7 @@ export function PdfCanvasViewer({
       // Use setTimeout to ensure this runs after the state update
       setTimeout(() => setIsInitialLoad(false), 0);
     }
-  }, [initialDrawingElements, scale, elementsConverted]);
+  }, [initialDrawingElements, scale, elementsConverted, loading]);
 
   // Notify parent when drawing elements change
   // Convert from canvas coordinates to detection coordinates (2x scale) before saving
