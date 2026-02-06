@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { Loader2, Move, Type, Square, Circle, Minus, ArrowRight, Pen, Trash2 } from 'lucide-react';
+import { Loader2, Move, Type, Square, Circle, Minus, ArrowRight, Pen, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/button';
 
 // Set up the worker - use unpkg as a more reliable CDN
@@ -50,6 +50,7 @@ interface DrawingElement {
   color: string;
   fontSize?: number;
   strokeWidth?: number;
+  page: number;
 }
 
 export function PdfCanvasViewer({
@@ -70,6 +71,8 @@ export function PdfCanvasViewer({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(pageNumber);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Drawing tools state
   const [currentTool, setCurrentTool] = useState<DrawingTool>('move');
@@ -101,6 +104,7 @@ export function PdfCanvasViewer({
             ...element,
             x: element.x * detectionToCanvasScale,
             y: element.y * detectionToCanvasScale,
+            page: element.page || 1, // Default to page 1 if not specified
           };
 
           // Convert width/height for shapes
@@ -220,7 +224,8 @@ export function PdfCanvasViewer({
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
         const pdf = await loadingTask.promise;
         console.log('[PdfCanvasViewer] PDF loaded, total pages:', pdf.numPages);
-        const page = await pdf.getPage(pageNumber);
+        setTotalPages(pdf.numPages);
+        const page = await pdf.getPage(currentPage);
 
         if (!isMounted) return;
 
@@ -252,8 +257,8 @@ export function PdfCanvasViewer({
         if (!isMounted) return;
 
         // Calculate overlay boxes
-        const fillsForPage = suggestedFills.filter(fill => fill.page === pageNumber);
-        console.log('[PdfCanvasViewer] Processing', fillsForPage.length, 'fills for page', pageNumber);
+        const fillsForPage = suggestedFills.filter(fill => fill.page === currentPage);
+        console.log('[PdfCanvasViewer] Processing', fillsForPage.length, 'fills for page', currentPage);
         const boxes: OverlayBox[] = fillsForPage.map((fill, idx) => {
           // Coordinates come from detection at 2x scale (Matrix(2, 2) in Python)
           // Convert: image coords (2x) -> PDF points (÷2) -> canvas pixels (×calculatedScale)
@@ -302,7 +307,7 @@ export function PdfCanvasViewer({
     return () => {
       isMounted = false;
     };
-  }, [pdfUrl, pageNumber]);
+  }, [pdfUrl, currentPage]);
 
   // Render overlays whenever suggestedFills or dragging state changes
   useEffect(() => {
@@ -319,7 +324,7 @@ export function PdfCanvasViewer({
     // Clear overlay
     context.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-    const fillsForPage = suggestedFills.filter(fill => fill.page === pageNumber);
+    const fillsForPage = suggestedFills.filter(fill => fill.page === currentPage);
 
     // Draw each overlay
     fillsForPage.forEach((fill, idx) => {
@@ -375,8 +380,8 @@ export function PdfCanvasViewer({
       }
     });
 
-    // Draw all saved drawing elements
-    drawingElements.forEach((element) => {
+    // Draw all saved drawing elements for current page
+    drawingElements.filter(el => el.page === currentPage).forEach((element) => {
       const isSelected = selectedElementId === element.id;
       context.strokeStyle = element.color;
       context.fillStyle = element.color;
@@ -506,7 +511,7 @@ export function PdfCanvasViewer({
           break;
       }
     }
-  }, [suggestedFills, overlayBoxes, pageNumber, hoveredIndex, draggingIndex, drawingElements, currentDrawing, selectedElementId, selectedColor, strokeWidth, aiFillsFontSize]);
+  }, [suggestedFills, overlayBoxes, currentPage, hoveredIndex, draggingIndex, drawingElements, currentDrawing, selectedElementId, selectedColor, strokeWidth, aiFillsFontSize]);
 
   // Mouse event handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -535,8 +540,8 @@ export function PdfCanvasViewer({
         }
       }
 
-      // Check if clicking on a drawing element for selection and dragging
-      for (const element of [...drawingElements].reverse()) {
+      // Check if clicking on a drawing element for selection and dragging (only current page)
+      for (const element of [...drawingElements].filter(el => el.page === currentPage).reverse()) {
         let isInside = false;
         if (element.type === 'text') {
           const textWidth = (element.text || '').length * (element.fontSize || 14) * 0.6;
@@ -579,7 +584,8 @@ export function PdfCanvasViewer({
           y: mouseY,
           text,
           color: selectedColor,
-          fontSize
+          fontSize,
+          page: currentPage
         };
         setDrawingElements(prev => [...prev, newElement]);
       }
@@ -591,7 +597,8 @@ export function PdfCanvasViewer({
         y: mouseY,
         points: [{ x: mouseX, y: mouseY }],
         color: selectedColor,
-        strokeWidth
+        strokeWidth,
+        page: currentPage
       });
     } else {
       setIsDrawing(true);
@@ -604,7 +611,8 @@ export function PdfCanvasViewer({
         width: 0,
         height: 0,
         color: selectedColor,
-        strokeWidth
+        strokeWidth,
+        page: currentPage
       });
     }
   };
@@ -718,13 +726,13 @@ export function PdfCanvasViewer({
       const pdfY = (box.y + textHeight + padding) * detectionScale / scale;
 
       // Update the fill with new coordinates
-      const fillsForPage = suggestedFills.filter(fill => fill.page === pageNumber);
+      const fillsForPage = suggestedFills.filter(fill => fill.page === currentPage);
       const updatedFill = { ...fillsForPage[draggingIndex], x: pdfX, y: pdfY };
 
       // Merge with all fills (including other pages)
       const allFills = [...suggestedFills];
       const globalIndex = suggestedFills.findIndex(
-        f => f.fieldIndex === updatedFill.fieldIndex && f.page === pageNumber
+        f => f.fieldIndex === updatedFill.fieldIndex && f.page === currentPage
       );
 
       if (globalIndex >= 0) {
@@ -755,7 +763,8 @@ export function PdfCanvasViewer({
         text: currentDrawing.text,
         color: currentDrawing.color || selectedColor,
         fontSize: currentDrawing.fontSize || fontSize,
-        strokeWidth: currentDrawing.strokeWidth || strokeWidth
+        strokeWidth: currentDrawing.strokeWidth || strokeWidth,
+        page: currentDrawing.page || currentPage
       };
 
       // Only save if it has some size (not just a click)
@@ -783,10 +792,38 @@ export function PdfCanvasViewer({
         <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">
           PDF Preview with Suggested Fills
         </h4>
-        <span className="text-xs text-muted-foreground flex items-center gap-2">
-          <Move className="h-3 w-3" />
-          Page {pageNumber} • {suggestedFills.filter(f => f.page === pageNumber).length} suggestions
-        </span>
+        <div className="flex items-center gap-3">
+          {/* Page Navigation */}
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="h-7 w-7 p-0"
+              title="Previous Page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground px-2 min-w-[60px] text-center">
+              {currentPage} / {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="h-7 w-7 p-0"
+              title="Next Page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <span className="text-xs text-muted-foreground flex items-center gap-2">
+            <Move className="h-3 w-3" />
+            {suggestedFills.filter(f => f.page === currentPage).length} suggestions
+          </span>
+        </div>
       </div>
 
       {/* Drawing Tools Toolbar */}
@@ -907,7 +944,7 @@ export function PdfCanvasViewer({
         )}
 
         {/* AI Fills Font Size Control */}
-        {suggestedFills.filter(f => f.page === pageNumber).length > 0 && (
+        {suggestedFills.filter(f => f.page === currentPage).length > 0 && (
           <div className="flex items-center gap-2 border-r pr-2">
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">AI Text Size:</span>
             <select
@@ -942,9 +979,9 @@ export function PdfCanvasViewer({
           </Button>
         )}
 
-        {drawingElements.length > 0 && (
+        {drawingElements.filter(el => el.page === currentPage).length > 0 && (
           <div className="ml-auto text-xs text-muted-foreground">
-            {drawingElements.length} annotation{drawingElements.length !== 1 ? 's' : ''}
+            {drawingElements.filter(el => el.page === currentPage).length} annotation{drawingElements.filter(el => el.page === currentPage).length !== 1 ? 's' : ''}
           </div>
         )}
       </div>
