@@ -7,7 +7,6 @@ import {
   TrendingUp,
   Zap,
   ArrowRight,
-  Clock,
   Users,
   Brain,
   Search,
@@ -408,15 +407,12 @@ Your role:
       description: suggestion.description,
       state: 'published', // Overview shows live/published questions
       liveDate: suggestion.liveDate || suggestion.createdAt, // Use liveDate or fallback to createdAt
-      answerEndAt: suggestion.answerEndAt,
-      settlementAt: suggestion.settlementAt,
       resolutionCriteria: suggestion.resolutionCriteria,
       categories: suggestion.categories,
       agentId: suggestion.agentId,
       answerCount: 0, // Default values
       createdAt: suggestion.createdAt,
       updatedAt: new Date(),
-      type: suggestion.type || 'binary',
     };
 
     setSelectedEditQuestion(questionForEdit);
@@ -456,8 +452,8 @@ Your role:
       setQuestions(questions.map(q =>
         q.id === questionToQueue.id ? updatedQuestion : q
       ));
-      // Navigate to markets page
-      navigate('/markets');
+      // Navigate to pulse page
+      navigate('/pulse');
     } else {
       toast.error("Failed to queue question");
     }
@@ -505,9 +501,8 @@ Your role:
             id: 0, // 0 for new question on platform
             question: updatedQuestion.title,
             extra: updatedQuestion.description || "",
-            liveUntil: toMySQLDateTime(updatedQuestion.answerEndAt),
+            // TODO: Update API to not require answerEndAt/settlementAt fields
             liveAt: toMySQLDateTime(updatedQuestion.liveDate || new Date()),
-            settlementAt: toMySQLDateTime(updatedQuestion.settlementAt),
             image: "", // Add image support later if needed
             client: platform
           })
@@ -562,16 +557,16 @@ Your role:
         : orderA - orderB;
     });
 
-  // Get all AI-generated suggestions (excluding past settlement date)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+  // Get all AI-generated suggestions from the last 24 hours
+  const twentyFourHoursAgo = new Date();
+  twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
   const trendingSuggestions = [...questions.filter(q => {
     if (q.state !== 'pending') return false;
 
-    // Filter out questions past their settlement date
-    const settlementDate = new Date(q.settlementAt);
-    return settlementDate >= today;
+    // Filter events created in the last 24 hours
+    const createdDate = new Date(q.createdAt);
+    return createdDate >= twentyFourHoursAgo;
   })];
 
   // Calculate stats from real data
@@ -734,7 +729,7 @@ Your role:
             <TrendingUp className="h-5 w-5 text-primary" />
             <h2 className="text-2xl">AI Agent Pulse</h2>
           </div>
-          <Button variant="ghost" onClick={() => navigate('/markets')}>
+          <Button variant="ghost" onClick={() => navigate('/pulse')}>
             View All Suggestions
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
@@ -807,10 +802,6 @@ Your role:
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>Ends {suggestion.answerEndAt.toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
                       <Sparkles className="h-3 w-3" />
                       <span>{getAgentName(suggestion)}</span>
                     </div>
@@ -875,7 +866,7 @@ Your role:
                   <SelectItem value="lowest">Lowest Rated</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="ghost" onClick={() => navigate('/markets')}>
+              <Button variant="ghost" onClick={() => navigate('/pulse')}>
                 View All
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
@@ -895,7 +886,7 @@ Your role:
             <p className="text-muted-foreground mb-4">
               Generate questions to see Nova ratings
             </p>
-            <Button onClick={() => navigate('/markets')}>
+            <Button onClick={() => navigate('/pulse')}>
               Go to Pulse
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
@@ -1005,10 +996,6 @@ Your role:
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>Ends {suggestion.answerEndAt.toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
                       <Sparkles className="h-3 w-3" />
                       <span>{getAgentName(suggestion)}</span>
                     </div>
@@ -1045,7 +1032,7 @@ Your role:
               </p>
             </div>
             <div className="flex gap-3">
-              <Button onClick={() => navigate('/markets')} className="gradient-primary text-white border-0">
+              <Button onClick={() => navigate('/pulse')} className="gradient-primary text-white border-0">
                 <Brain className="h-4 w-4 mr-2" />
                 AI Generate
               </Button>
