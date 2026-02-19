@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { Overview } from "./pages/Overview";
-import { Markets } from "./pages/Markets";
+import { Pulse } from "./pages/Pulse";
 import { ManageQuestions } from "./pages/ManageQuestions";
 import { Profiles } from "./pages/Profiles";
 import { TrackedContent } from "./pages/TrackedContent";
@@ -28,7 +28,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/overview" replace />} />
               <Route path="/overview" element={<Overview />} />
-              <Route path="/markets" element={<Markets />} />
+              <Route path="/pulse" element={<Pulse />} />
               <Route path="/questions" element={<ManageQuestions />} />
               <Route path="/profiles" element={<Profiles />} />
               <Route path="/tracked-content" element={<TrackedContent />} />
