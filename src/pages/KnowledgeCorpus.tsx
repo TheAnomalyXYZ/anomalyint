@@ -263,15 +263,68 @@ export function KnowledgeCorpus() {
       return;
     }
 
+    if (!selectedChatCorpusId || selectedChatCorpusId === 'none') {
+      toast.error('Please select a knowledge base first');
+      return;
+    }
+
     const userMessage = chatInput.trim();
     setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
 
     try {
+      // Retrieve relevant chunks from knowledge corpus
+      let knowledgeContext = '';
+      try {
+        console.log(`[KnowledgeCorpus] Retrieving chunks for query: "${userMessage}"`);
+        const retrievalResponse = await fetch('/api/retrieve-chunks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: userMessage,
+            corpus_id: selectedChatCorpusId,
+            match_count: 10,
+            match_threshold: 0.5,
+          }),
+        });
+
+        if (retrievalResponse.ok) {
+          const retrievalData = await retrievalResponse.json();
+          console.log(`[KnowledgeCorpus] Retrieval response:`, retrievalData);
+          if (retrievalData.chunks && retrievalData.chunks.length > 0) {
+            knowledgeContext = '\n\n## Knowledge Base Context:\n' +
+              retrievalData.chunks.map((chunk: any, idx: number) =>
+                `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
+              ).join('\n\n');
+            console.log(`[KnowledgeCorpus] Retrieved ${retrievalData.chunks.length} relevant chunks`);
+            toast.success(`Found ${retrievalData.chunks.length} relevant documents`);
+          } else {
+            console.warn(`[KnowledgeCorpus] No chunks found in corpus`);
+            toast.info('No relevant documents found in knowledge base');
+          }
+        } else {
+          const errorData = await retrievalResponse.json();
+          console.error('[KnowledgeCorpus] Retrieval failed:', errorData);
+          toast.error('Failed to retrieve knowledge base: ' + errorData.message);
+        }
+      } catch (error) {
+        console.error('[KnowledgeCorpus] Failed to retrieve chunks:', error);
+        toast.error('Error accessing knowledge base');
+        // Continue without knowledge context
+      }
+
       const selectedCorpus = corpora.find(c => c.id === selectedChatCorpusId);
-      const systemPrompt = selectedCorpus
-        ? `You are an AI assistant with access to the "${selectedCorpus.name}" knowledge base. Answer questions using information from this corpus when relevant.`
-        : 'You are an AI assistant helping with content creation and answering questions.';
+      const systemPrompt = knowledgeContext
+        ? `You are an AI assistant with access to the "${selectedCorpus?.name}" knowledge base. Use the following context to answer the user's question accurately and helpfully.
+
+${knowledgeContext}
+
+Instructions:
+- Answer based on the provided knowledge base context when relevant
+- Cite sources by mentioning the file name when referencing specific information
+- If the context doesn't contain relevant information, say so and provide general assistance
+- Be conversational, helpful, and concise`
+        : `You are an AI assistant helping with questions about the "${selectedCorpus?.name}" knowledge base. The search didn't return relevant results, so provide general assistance and suggest the user rephrase their question.`;
 
       const completion = await openaiClient.current.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -772,9 +825,9 @@ export function KnowledgeCorpus() {
                 <Brain className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <DialogTitle>AI Content Generator</DialogTitle>
+                <DialogTitle>AI Knowledge Chat</DialogTitle>
                 <DialogDescription>
-                  Chat with AI to create engaging content
+                  Ask questions about your knowledge base
                 </DialogDescription>
               </div>
             </div>
@@ -812,7 +865,7 @@ export function KnowledgeCorpus() {
                 <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
                 <p className="text-muted-foreground">
-                  Ask me to create content about anything
+                  Ask me anything about your knowledge base
                 </p>
               </div>
             ) : (
@@ -869,7 +922,7 @@ export function KnowledgeCorpus() {
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!chatInput.trim()}
+                disabled={!chatInput.trim() || !selectedChatCorpusId || selectedChatCorpusId === 'none'}
                 className="gradient-primary text-white border-0"
               >
                 <Send className="h-4 w-4" />
