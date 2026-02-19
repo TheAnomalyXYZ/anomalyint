@@ -38,7 +38,7 @@ import { QuestionDetailsModal } from "../components/shared/QuestionDetailsModal"
 import { NovaProcessingModal } from "../components/shared/NovaProcessingModal";
 import { toast } from "sonner";
 
-export function Markets() {
+export function Pulse() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [questions, setQuestions] = useState<ProposedEvent[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -48,7 +48,7 @@ export function Markets() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<ProposedEvent | null>(null);
-  const [activeTab, setActiveTab] = useState<"suggestions" | "queued" | "live" | "paused" | "deleted">("queued");
+  const [activeTab, setActiveTab] = useState<"suggestions" | "deleted">("suggestions");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [platformDialogOpen, setPlatformDialogOpen] = useState(false);
   const [questionToApprove, setQuestionToApprove] = useState<string | null>(null);
@@ -69,10 +69,6 @@ export function Markets() {
     twitter: true,
     news: true,
     meme: true,
-  });
-  const [typeFilters, setTypeFilters] = useState({
-    binary: true,
-    multiOption: true,
   });
 
   // Load data from database on mount
@@ -122,9 +118,6 @@ export function Markets() {
   // Filter questions by active tab (state)
   const tabStateMap = {
     suggestions: 'pending' as const,
-    queued: 'approved' as const,
-    live: 'published' as const,
-    paused: 'paused' as const,
     deleted: 'rejected' as const,
   };
 
@@ -142,14 +135,7 @@ export function Markets() {
     const agentCategory = agent?.category;
     const matchesCategory = !agentCategory || categoryFilters[agentCategory as keyof typeof categoryFilters];
 
-    // Agent filter - for now we'll match all since we removed source filtering
-    const matchesSource = true;
-
-    // Type filter
-    const proposalType = proposal.type || 'binary';
-    const matchesType = proposalType === 'binary' ? typeFilters.binary : typeFilters.multiOption;
-
-    return matchesSearch && matchesCategory && matchesSource && matchesType;
+    return matchesSearch && matchesCategory;
   });
 
   // Helper to get friendly platform name
@@ -163,9 +149,6 @@ export function Markets() {
 
   // Count by state for tab labels
   const pendingCount = questions.filter(q => q.state === 'pending').length;
-  const approvedCount = questions.filter(q => q.state === 'approved').length;
-  const liveCount = questions.filter(q => q.state === 'published').length;
-  const pausedCount = questions.filter(q => q.state === 'paused').length;
   const rejectedCount = questions.filter(q => q.state === 'rejected').length;
 
   const handleToggleCategoryFilter = (category: keyof typeof categoryFilters) => {
@@ -179,13 +162,6 @@ export function Markets() {
     setSourceFilters(prev => ({
       ...prev,
       [source]: !prev[source]
-    }));
-  };
-
-  const handleToggleTypeFilter = (type: keyof typeof typeFilters) => {
-    setTypeFilters(prev => ({
-      ...prev,
-      [type]: !prev[type]
     }));
   };
 
@@ -437,18 +413,9 @@ export function Markets() {
     }
   };
 
-  // Get all AI-generated suggestions (excluding past settlement date)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to start of day for comparison
-
+  // Get all AI-generated suggestions
   const topSuggestions = questions
-    .filter(q => {
-      if (q.state !== 'pending') return false;
-
-      // Filter out questions past their settlement date
-      const settlementDate = new Date(q.settlementAt);
-      return settlementDate >= today;
-    })
+    .filter(q => q.state === 'pending')
     .slice(0, 6);
 
   // Helper function to truncate title for desktop
@@ -461,8 +428,8 @@ export function Markets() {
   return (
     <div>
       <PageHeader
-        title="Markets"
-        description="Manage AI-generated suggestions and queued events"
+        title="Pulse"
+        description="Manage AI-generated event suggestions"
         actions={
           <>
             {activeTab === "suggestions" && pendingCount > 0 && (
@@ -557,10 +524,6 @@ export function Markets() {
 
                     {/* Meta info */}
                     <div className="flex items-center justify-between pt-1 border-t text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <Clock className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">Ends {suggestion.answerEndAt.toLocaleDateString()}</span>
-                      </div>
                       <div className="flex items-center gap-1 min-w-0">
                         <Sparkles className="h-3 w-3 flex-shrink-0" />
                         <span className="truncate">{getAgentName(suggestion)}</span>
@@ -762,53 +725,10 @@ export function Markets() {
               </div>
             </div>
 
-            <div>
-              <Label className="mb-3 block text-muted-foreground">Type</Label>
-              <div className="space-y-3 opacity-50">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="binary"
-                    checked={typeFilters.binary}
-                    onCheckedChange={() => handleToggleTypeFilter("binary")}
-                    disabled
-                  />
-                  <label
-                    htmlFor="binary"
-                    className="text-sm cursor-not-allowed"
-                  >
-                    Binary
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="multi-option"
-                    checked={typeFilters.multiOption}
-                    onCheckedChange={() => handleToggleTypeFilter("multiOption")}
-                    disabled
-                  />
-                  <label
-                    htmlFor="multi-option"
-                    className="text-sm cursor-not-allowed"
-                  >
-                    Multi-option
-                  </label>
-                </div>
-              </div>
-            </div>
-
             <div className="pt-4 border-t">
               <div className="text-sm text-muted-foreground">
                 <p className="mb-1">
                   <span className="font-medium">AI Suggestions:</span> {pendingCount}
-                </p>
-                <p className="mb-1">
-                  <span className="font-medium">Queued:</span> {approvedCount}
-                </p>
-                <p className="mb-1">
-                  <span className="font-medium">Live:</span> {liveCount}
-                </p>
-                <p className="mb-1">
-                  <span className="font-medium">Paused:</span> {pausedCount}
                 </p>
                 <p>
                   <span className="font-medium">Deleted:</span> {rejectedCount}
@@ -824,20 +744,11 @@ export function Markets() {
         <div className="flex-1">
           <Card>
             <CardContent className="p-0">
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "suggestions" | "queued" | "live" | "paused" | "deleted")} className="w-full">
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "suggestions" | "deleted")} className="w-full">
                 <div className="border-b px-6 pt-4 flex items-center justify-between">
                   <TabsList>
                     <TabsTrigger value="suggestions">
-                      All AI Suggestions ({pendingCount})
-                    </TabsTrigger>
-                    <TabsTrigger value="queued">
-                      Queued ({approvedCount})
-                    </TabsTrigger>
-                    <TabsTrigger value="live">
-                      Live ({liveCount})
-                    </TabsTrigger>
-                    <TabsTrigger value="paused">
-                      Paused ({pausedCount})
+                      AI Suggestions ({pendingCount})
                     </TabsTrigger>
                     <TabsTrigger value="deleted">
                       Deleted ({rejectedCount})
@@ -873,10 +784,6 @@ export function Markets() {
                           <TableHead>Title</TableHead>
                           <TableHead>Agent</TableHead>
                           <TableHead>Categories</TableHead>
-                          <TableHead>Live Date</TableHead>
-                          <TableHead>Answer End</TableHead>
-                          <TableHead>Settlement</TableHead>
-                          <TableHead>Type</TableHead>
                           <TableHead className="w-48">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -921,16 +828,6 @@ export function Markets() {
                                 );
                               })()}
                             </TableCell>
-                            <TableCell className="text-sm">{formatDateTime(proposal.liveDate)}</TableCell>
-                            <TableCell className="text-sm">{formatDateTime(proposal.answerEndAt)}</TableCell>
-                            <TableCell className="text-sm">
-                              {formatDateTime(proposal.settlementAt)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="capitalize">
-                                {proposal.type === 'multi-option' ? 'Multi-option' : proposal.type === 'paused' ? 'Paused' : 'Binary'}
-                              </Badge>
-                            </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
                                 <Button
@@ -966,473 +863,6 @@ export function Markets() {
                   )}
                 </TabsContent>
 
-                {/* Queued Tab */}
-                <TabsContent value="queued" className="m-0 p-6">
-                  {filteredProposals.length === 0 ? (
-                    <EmptyState
-                      icon={<Clock className="h-12 w-12" />}
-                      title="No queued questions"
-                      description="Approved questions will appear here ready for publishing"
-                    />
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12"></TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Agent</TableHead>
-                          <TableHead>Categories</TableHead>
-                          <TableHead>Platform</TableHead>
-                          <TableHead>Live Date</TableHead>
-                          <TableHead>Answer End</TableHead>
-                          <TableHead>Settlement</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead className="w-80">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredProposals.map((proposal) => (
-                          <Fragment key={proposal.id}>
-                            <TableRow>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    setExpandedRow(
-                                      expandedRow === proposal.id ? null : proposal.id
-                                    )
-                                  }
-                                >
-                                  {expandedRow === proposal.id ? (
-                                    <ChevronDown className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </TableCell>
-                              <TableCell>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <p className="max-w-md cursor-help">{truncateTitle(proposal.title)}</p>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="max-w-sm">{proposal.title}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className="border-primary/50 text-primary"
-                                >
-                                  {getAgentName(proposal)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {(() => {
-                                  const agent = agents.find(a => a.id === proposal.agentId);
-                                  return agent?.categories && agent.categories.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {agent.categories.map((category, idx) => (
-                                        <Badge
-                                          key={idx}
-                                          variant="outline"
-                                          className={getCategoryColor(category)}
-                                        >
-                                          {category}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground">-</span>
-                                  );
-                                })()}
-                              </TableCell>
-                              <TableCell>
-                                {proposal.pushedTo && proposal.pushedTo.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {proposal.pushedTo.map((platform, idx) => (
-                                      <Badge
-                                        key={idx}
-                                        variant="outline"
-                                        className="bg-blue-50 text-blue-700 border-blue-200"
-                                      >
-                                        {getPlatformDisplayName(platform)}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-sm text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.liveDate)}</TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.answerEndAt)}</TableCell>
-                              <TableCell className="text-sm">
-                                {formatDateTime(proposal.settlementAt)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {proposal.type === 'multi-option' ? 'Multi-option' : proposal.type === 'paused' ? 'Paused' : 'Binary'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEditDetails(proposal)}
-                                    title="Edit Details"
-                                  >
-                                    <Edit className="h-4 w-4 mr-1" />
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="bg-green-600 hover:bg-green-700 text-white border-green-600"
-                                    onClick={() => handlePush(proposal.id)}
-                                    title="Push to platform and go live"
-                                  >
-                                    <Send className="h-4 w-4 mr-1" />
-                                    Push
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleUnqueue(proposal.id)}
-                                    title="Move back to Suggestions"
-                                  >
-                                    <Undo2 className="h-4 w-4 mr-1" />
-                                    Unqueue
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                    onClick={() => handleDeleteQueued(proposal.id)}
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Delete
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                            {expandedRow === proposal.id && (
-                              <TableRow>
-                                <TableCell colSpan={10} className="bg-muted/50">
-                                  <div className="p-4 space-y-4">
-                                    <div>
-                                      <h4 className="mb-2">Description</h4>
-                                      <p className="text-muted-foreground">
-                                        {proposal.description}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <h4 className="mb-2">Resolution Criteria</h4>
-                                      <p className="text-muted-foreground">
-                                        {proposal.resolutionCriteria}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <h4 className="mb-2">AI Agent</h4>
-                                      <Badge variant="outline" className="border-primary/50 text-primary">
-                                        {getAgentName(proposal)}
-                                      </Badge>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        onClick={() => handleEditDetails(proposal)}
-                                      >
-                                        Edit Details
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </Fragment>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </TabsContent>
-
-                {/* Live Tab */}
-                <TabsContent value="live" className="m-0 p-6">
-                  {filteredProposals.length === 0 ? (
-                    <EmptyState
-                      icon={<TrendingUp className="h-12 w-12" />}
-                      title="No live markets"
-                      description="Published questions will appear here"
-                    />
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Agent</TableHead>
-                          <TableHead>Categories</TableHead>
-                          <TableHead>Live Date</TableHead>
-                          <TableHead>Answer End</TableHead>
-                          <TableHead>Settlement</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead className="w-32">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredProposals.map((proposal) => (
-                          <TableRow key={proposal.id}>
-                            <TableCell>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <p className="max-w-md cursor-help">{truncateTitle(proposal.title)}</p>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="max-w-sm">{proposal.title}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className="border-primary/50 text-primary"
-                                >
-                                  {getAgentName(proposal)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {(() => {
-                                  const agent = agents.find(a => a.id === proposal.agentId);
-                                  return agent?.categories && agent.categories.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {agent.categories.map((category, idx) => (
-                                        <Badge
-                                          key={idx}
-                                          variant="outline"
-                                          className={getCategoryColor(category)}
-                                        >
-                                          {category}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground">-</span>
-                                  );
-                                })()}
-                              </TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.liveDate)}</TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.answerEndAt)}</TableCell>
-                              <TableCell className="text-sm">
-                                {formatDateTime(proposal.settlementAt)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {proposal.type === 'multi-option' ? 'Multi-option' : 'Binary'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleCloseNow(proposal.id)}
-                                    title="Close Now"
-                                  >
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                    Close
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handlePause(proposal.id)}
-                                    title="Pause"
-                                  >
-                                    <Pause className="h-4 w-4 mr-1" />
-                                    Pause
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEditDetails(proposal)}
-                                    title="Edit"
-                                  >
-                                    <Edit className="h-4 w-4 mr-1" />
-                                    Edit
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </TabsContent>
-
-                {/* Paused Tab */}
-                <TabsContent value="paused" className="m-0 p-6">
-                  {filteredProposals.length === 0 ? (
-                    <EmptyState
-                      icon={<Clock className="h-12 w-12" />}
-                      title="No paused markets"
-                      description="Paused questions will appear here"
-                    />
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12"></TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Agent</TableHead>
-                          <TableHead>Categories</TableHead>
-                          <TableHead>Live Date</TableHead>
-                          <TableHead>Answer End</TableHead>
-                          <TableHead>Settlement</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead className="w-32">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredProposals.map((proposal) => (
-                          <Fragment key={proposal.id}>
-                            <TableRow>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    setExpandedRow(
-                                      expandedRow === proposal.id ? null : proposal.id
-                                    )
-                                  }
-                                >
-                                  {expandedRow === proposal.id ? (
-                                    <ChevronDown className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </TableCell>
-                              <TableCell>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <p className="max-w-md cursor-help">{truncateTitle(proposal.title)}</p>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="max-w-sm">{proposal.title}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className="border-primary/50 text-primary"
-                                >
-                                  {getAgentName(proposal)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {(() => {
-                                  const agent = agents.find(a => a.id === proposal.agentId);
-                                  return agent?.categories && agent.categories.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {agent.categories.map((category, idx) => (
-                                        <Badge
-                                          key={idx}
-                                          variant="outline"
-                                          className={getCategoryColor(category)}
-                                        >
-                                          {category}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground">-</span>
-                                  );
-                                })()}
-                              </TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.liveDate)}</TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.answerEndAt)}</TableCell>
-                              <TableCell className="text-sm">
-                                {formatDateTime(proposal.settlementAt)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {proposal.type === 'multi-option' ? 'Multi-option' : 'Binary'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleUnpause(proposal.id)}
-                                    title="Resume"
-                                  >
-                                    <Play className="h-4 w-4 mr-1" />
-                                    Resume
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleCloseNow(proposal.id)}
-                                    title="Close Now"
-                                  >
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                    Close
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEditDetails(proposal)}
-                                    title="Edit"
-                                  >
-                                    <Edit className="h-4 w-4 mr-1" />
-                                    Edit
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                            {expandedRow === proposal.id && (
-                              <TableRow>
-                                <TableCell colSpan={9} className="bg-muted/50">
-                                  <div className="p-4 space-y-4">
-                                    <div>
-                                      <h4 className="mb-2">Description</h4>
-                                      <p className="text-muted-foreground">
-                                        {proposal.description}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <h4 className="mb-2">Resolution Criteria</h4>
-                                      <p className="text-muted-foreground">
-                                        {proposal.resolutionCriteria}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <h4 className="mb-2">AI Agent</h4>
-                                      <Badge variant="outline" className="border-primary/50 text-primary">
-                                        {getAgentName(proposal)}
-                                      </Badge>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        onClick={() => handleEditDetails(proposal)}
-                                      >
-                                        Edit Details
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </Fragment>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </TabsContent>
 
                 {/* Deleted Tab */}
                 <TabsContent value="deleted" className="m-0 p-6">
@@ -1450,10 +880,6 @@ export function Markets() {
                           <TableHead>Title</TableHead>
                           <TableHead>Agent</TableHead>
                           <TableHead>Categories</TableHead>
-                          <TableHead>Live Date</TableHead>
-                          <TableHead>Answer End</TableHead>
-                          <TableHead>Settlement</TableHead>
-                          <TableHead>Type</TableHead>
                           <TableHead className="w-48">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1515,16 +941,6 @@ export function Markets() {
                                     <span className="text-sm text-muted-foreground">-</span>
                                   );
                                 })()}
-                              </TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.liveDate)}</TableCell>
-                              <TableCell className="text-sm">{formatDateTime(proposal.answerEndAt)}</TableCell>
-                              <TableCell className="text-sm">
-                                {formatDateTime(proposal.settlementAt)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {proposal.type === 'multi-option' ? 'Multi-option' : proposal.type === 'paused' ? 'Paused' : 'Binary'}
-                                </Badge>
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-2">
