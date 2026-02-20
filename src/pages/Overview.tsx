@@ -311,7 +311,7 @@ Your role:
 
 ${currentContext ? `Context about today's AI-generated events:\n${currentContext}\n\n` : ''}
 
-Greet the user warmly and briefly explain how you can help them create content. If there are questions generated today, mention them as content pieces. Keep it concise (2-3 sentences).`;
+Greet the user warmly and briefly explain how you can help them create content. If there are events generated today, mention them as content pieces. Keep it concise (2-3 sentences).`;
 
         const completion = await openaiClient.current.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -745,7 +745,7 @@ Your role:
             <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4 mt-4" />
             <h3 className="text-lg font-semibold mb-2">No AI Suggestions Yet</h3>
             <p className="text-muted-foreground mb-4">
-              Create an agent and run it to generate questions
+              Create an agent and run it to generate events
             </p>
             <Button onClick={() => navigate('/agents')}>
               Go to AI Agents
@@ -884,7 +884,7 @@ Your role:
             <Star className="h-12 w-12 text-muted-foreground mx-auto mb-4 mt-4" />
             <h3 className="text-lg font-semibold mb-2">No Nova Suggestions Yet</h3>
             <p className="text-muted-foreground mb-4">
-              Generate questions to see Nova ratings
+              Generate events to see Nova ratings
             </p>
             <Button onClick={() => navigate('/pulse')}>
               Go to Pulse
@@ -1179,7 +1179,7 @@ Your role:
           <DialogHeader>
             <DialogTitle>Select Target Platforms</DialogTitle>
             <DialogDescription>
-              Choose which platforms to push this question to
+              Choose which platforms to push this event to
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
