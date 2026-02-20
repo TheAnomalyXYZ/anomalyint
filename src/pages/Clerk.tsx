@@ -2168,7 +2168,7 @@ Help the user understand the document and assist with form filling. When the use
                 {selectedCorpusId && (
                   <Button
                     onClick={handleStartChat}
-                    className="gradient-primary text-white border-0 shadow-lg hover:shadow-xl active:scale-95 transition-all"
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl active:scale-95 transition-all font-semibold"
                   >
                     <Brain className="h-4 w-4 mr-2" />
                     Start Chat
