@@ -275,6 +275,11 @@
     color: var(--text-secondary);
   }
 
+  /* Override paragraph color inside tooltips to ensure white text */
+  [data-slot="tooltip-content"] p {
+    color: white;
+  }
+
   label {
     font-size: 14px;
     font-weight: 500;
