@@ -47,8 +47,6 @@ export function EditQuestionDetailsModal({
 }: EditQuestionDetailsModalProps) {
   const [editedQuestion, setEditedQuestion] = useState<Event | null>(null);
   const [liveDatePopoverOpen, setLiveDatePopoverOpen] = useState(false);
-  const [answerEndPopoverOpen, setAnswerEndPopoverOpen] = useState(false);
-  const [settlementPopoverOpen, setSettlementPopoverOpen] = useState(false);
   const [newTag, setNewTag] = useState("");
 
   // Helper function to format date to EST time string (HH:MM)
@@ -172,23 +170,6 @@ export function EditQuestionDetailsModal({
             />
           </div>
 
-          {/* Event Type */}
-          <div>
-            <Label htmlFor="type">Event Type</Label>
-            <Select
-              value={editedQuestion.type || "binary"}
-              onValueChange={(value) => setEditedQuestion({ ...editedQuestion, type: value })}
-            >
-              <SelectTrigger className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="binary">Binary (Yes/No)</SelectItem>
-                <SelectItem value="multi-option">Multi-option</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Live Date */}
           <div>
             <Label>Live Date (EST)</Label>
@@ -238,110 +219,6 @@ export function EditQuestionDetailsModal({
                   setEditedQuestion({
                     ...editedQuestion,
                     liveDate: newDate,
-                  });
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Answer End Date */}
-          <div>
-            <Label>Answer End Date (EST)</Label>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Popover open={answerEndPopoverOpen} onOpenChange={setAnswerEndPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "justify-start text-left",
-                      !editedQuestion.answerEndAt && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {editedQuestion.answerEndAt
-                      ? formatDate(editedQuestion.answerEndAt)
-                      : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[100]" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={editedQuestion.answerEndAt}
-                    onSelect={(date) => {
-                      if (date) {
-                        const currentTime = formatTimeEST(editedQuestion.answerEndAt);
-                        const newDate = updateDateTime(date, currentTime);
-                        setEditedQuestion({
-                          ...editedQuestion,
-                          answerEndAt: newDate,
-                        });
-                      }
-                      setAnswerEndPopoverOpen(false);
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <Input
-                type="time"
-                value={formatTimeEST(editedQuestion.answerEndAt)}
-                onChange={(e) => {
-                  const newDate = updateDateTime(editedQuestion.answerEndAt, e.target.value);
-                  setEditedQuestion({
-                    ...editedQuestion,
-                    answerEndAt: newDate,
-                  });
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Settlement Date */}
-          <div>
-            <Label>Settlement Date (EST)</Label>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Popover open={settlementPopoverOpen} onOpenChange={setSettlementPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "justify-start text-left",
-                      !editedQuestion.settlementAt && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {editedQuestion.settlementAt
-                      ? formatDate(editedQuestion.settlementAt)
-                      : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[100]" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={editedQuestion.settlementAt}
-                    onSelect={(date) => {
-                      if (date) {
-                        const currentTime = formatTimeEST(editedQuestion.settlementAt);
-                        const newDate = updateDateTime(date, currentTime);
-                        setEditedQuestion({
-                          ...editedQuestion,
-                          settlementAt: newDate,
-                        });
-                      }
-                      setSettlementPopoverOpen(false);
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <Input
-                type="time"
-                value={formatTimeEST(editedQuestion.settlementAt)}
-                onChange={(e) => {
-                  const newDate = updateDateTime(editedQuestion.settlementAt, e.target.value);
-                  setEditedQuestion({
-                    ...editedQuestion,
-                    settlementAt: newDate,
                   });
                 }}
               />

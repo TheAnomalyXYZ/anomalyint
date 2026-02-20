@@ -32,8 +32,8 @@ export interface Event {
   description: string;
   state: EventState;
   liveDate?: Date;
-  answerEndAt: Date;
-  settlementAt: Date;
+  answerEndAt?: Date; // DEPRECATED: Will be removed in future version
+  settlementAt?: Date; // DEPRECATED: Will be removed in future version
   resolutionCriteria: string;
   categories: string[];
   topic?: string;
@@ -63,7 +63,7 @@ export interface Event {
 
   createdAt: Date;
   updatedAt: Date;
-  type?: EventType;
+  type?: EventType; // DEPRECATED: Will be removed in future version
 }
 
 // Alias for backward compatibility

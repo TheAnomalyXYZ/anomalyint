@@ -145,7 +145,7 @@ export function ManageQuestions() {
         title="Live Markets"
         description="Browse and manage all active prediction markets"
         actions={
-          <Button onClick={() => navigate("/markets")}>
+          <Button onClick={() => navigate("/pulse")}>
             <Plus className="h-4 w-4 mr-2" />
             New Event
           </Button>

@@ -162,7 +162,7 @@ export function AgentDetailsModal({
 
   const handleViewAll = () => {
     if (agent && onNavigate) {
-      onNavigate('/markets', { agent: agent.name, tab: 'suggestions' });
+      onNavigate('/pulse', { agent: agent.name, tab: 'suggestions' });
       onOpenChange(false);
     }
   };
