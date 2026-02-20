@@ -25,6 +25,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { eventsApi, agentsApi, corporaApi } from "../lib/supabase";
 import OpenAI from "openai";
+import { retrieveAndBuildContext } from "../lib/knowledge-retrieval";
 import {
   Dialog,
   DialogContent,
@@ -168,10 +169,43 @@ export function Overview() {
       const currentContext = await loadTodaysContext();
       console.log('[Tweet Generation] Current context loaded:', currentContext);
 
-      const systemPrompt = `You are a social media content creator for Intelligence Guild. Generate engaging tweets about partners, collaborations, or industry insights.
+      // Load knowledge base context if a corpus is selected
+      let knowledgeContext = '';
+      let brandContext = '';
 
-${currentContext ? `Context about today's AI-generated events:\n${currentContext}\n\n` : ''}
+      if (selectedCorpusId && selectedCorpusId !== 'none') {
+        console.log('[Tweet Generation] Retrieving knowledge from corpus:', selectedCorpusId);
 
+        try {
+          // Find the selected corpus to get its brand profile ID
+          const selectedCorpus = corpora.find((c: Corpus) => c.id === selectedCorpusId);
+
+          // Retrieve knowledge context with brand profile
+          const contextResult = await retrieveAndBuildContext({
+            query: 'partners, collaborations, brand information, company overview',
+            corpusId: selectedCorpusId,
+            matchCount: 5,
+            matchThreshold: 0.5,
+            showToast: false,
+            includeBrandProfile: true,
+            brandProfileId: selectedCorpus?.brandProfileId,
+          });
+
+          // Extract contexts (will be ContextResult type since includeBrandProfile is true)
+          if (typeof contextResult !== 'string') {
+            brandContext = contextResult.profileContext;
+            knowledgeContext = contextResult.knowledgeContext;
+            console.log('[Tweet Generation] Brand context loaded:', brandContext);
+            console.log('[Tweet Generation] Knowledge context loaded:', knowledgeContext ? 'Yes' : 'No');
+          }
+        } catch (error) {
+          console.error('[Tweet Generation] Error retrieving knowledge:', error);
+        }
+      }
+
+      const systemPrompt = `You are a social media content creator. Generate engaging tweets about partners, collaborations, or industry insights.
+
+${brandContext ? `${brandContext}\n\n` : ''}${currentContext ? `Context about today's AI-generated events:\n${currentContext}\n\n` : ''}${knowledgeContext ? `Additional knowledge base context:\n${knowledgeContext}\n\n` : ''}
 Your role:
 1. Create tweets that reference or relate to today's generated content when available
 2. Keep tweets under 280 characters
@@ -720,7 +754,7 @@ Your role:
                     </Button>
                     <Button
                       size="sm"
-                      className="flex-1 gradient-primary text-white border-0"
+                      className="flex-1"
                       onClick={() => {
                         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`, '_blank');
                       }}
