@@ -2164,7 +2164,7 @@ Help the user understand the document and assist with form filling. When the use
                 {selectedCorpusId && (
                   <Button
                     onClick={handleStartChat}
-                    className="gradient-primary text-white"
+                    className="gradient-primary text-white border-0 shadow-lg hover:shadow-xl active:scale-95 transition-all"
                   >
                     <Brain className="h-4 w-4 mr-2" />
                     Start Chat
@@ -2258,7 +2258,7 @@ Help the user understand the document and assist with form filling. When the use
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-auto p-6">
+          <div className="flex-1 overflow-auto">
             {pdfViewerFile && pdfViewerFile.suggestedFills && (
               <PdfCanvasViewer
                 pdfUrl={pdfViewerFile.url}
