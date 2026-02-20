@@ -116,15 +116,15 @@ export function Overview() {
       console.log('[Tweet Context] Total events in database:', allQuestions.length);
       console.log('[Tweet Context] All events:', allQuestions);
 
-      // Filter events generated today by AI agents
+      // Filter events generated today by AI agents (using local timezone)
       const today = new Date();
-      const todayDateString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-      console.log('[Tweet Context] Today\'s date (UTC):', todayDateString);
+      const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      console.log('[Tweet Context] Today\'s date (local):', todayDateString);
 
       const todaysQuestions = allQuestions.filter(q => {
         if (!q.agentId) return false;
         const createdDate = new Date(q.createdAt);
-        const createdDateString = createdDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const createdDateString = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`;
         return createdDateString === todayDateString;
       });
 

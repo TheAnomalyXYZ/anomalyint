@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { cn } from '../lib/utils';
+import { retrieveAndBuildContext } from '../lib/knowledge-retrieval';
 import OpenAI from 'openai';
 import { Corpus } from '../lib/types';
 import { PdfCanvasViewer } from '../components/shared/PdfCanvasViewer';
@@ -900,50 +901,32 @@ export function Clerk() {
     const formattedLines = currentFile.lineFields ? formatLineFields(currentFile.lineFields) : '';
 
     try {
-      // Retrieve relevant chunks from knowledge corpus if selected
+      // Retrieve relevant chunks from knowledge corpus with brand profile context
       let knowledgeContext = '';
+      let profileContext = '';
       if (selectedCorpusId) {
-        try {
-          console.log(`[Clerk] Retrieving chunks from corpus: ${selectedCorpusId}`);
-          const retrievalResponse = await fetch('/api/retrieve-chunks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              query: formattedText.substring(0, 2000), // Use first part of document as query
-              corpus_id: selectedCorpusId,
-              match_count: 10,
-              match_threshold: 0.5, // Lowered threshold for more results
-            }),
-          });
+        const selectedCorpus = corpora.find((c: Corpus) => c.id === selectedCorpusId);
+        const contextResult = await retrieveAndBuildContext({
+          query: formattedText.substring(0, 2000), // Use first part of document as query
+          corpusId: selectedCorpusId,
+          matchCount: 10,
+          matchThreshold: 0.5,
+          showToast: true,
+          includeBrandProfile: true,
+          brandProfileId: selectedCorpus?.brandProfileId,
+        });
 
-          if (retrievalResponse.ok) {
-            const retrievalData = await retrievalResponse.json();
-            console.log(`[Clerk] Retrieval response:`, retrievalData);
-            if (retrievalData.chunks && retrievalData.chunks.length > 0) {
-              knowledgeContext = '\n\n## Knowledge Base Context:\n' +
-                retrievalData.chunks.map((chunk: any, idx: number) =>
-                  `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
-                ).join('\n\n');
-              console.log(`[Clerk] Retrieved ${retrievalData.chunks.length} relevant chunks from corpus`);
-              toast.success(`Found ${retrievalData.chunks.length} relevant documents`);
-            } else {
-              console.warn(`[Clerk] No chunks found in corpus`);
-              toast.info('No relevant documents found in knowledge base');
-            }
-          } else {
-            const errorData = await retrievalResponse.json();
-            console.error('[Clerk] Retrieval failed:', errorData);
-            toast.error('Failed to retrieve knowledge base: ' + errorData.message);
-          }
-        } catch (error) {
-          console.error('[Clerk] Failed to retrieve chunks:', error);
-          toast.error('Error accessing knowledge base');
-          // Continue without knowledge context
+        // Extract contexts
+        if (typeof contextResult === 'string') {
+          knowledgeContext = contextResult;
+        } else {
+          knowledgeContext = contextResult.knowledgeContext;
+          profileContext = contextResult.profileContext;
         }
       }
 
       const corpusContext = knowledgeContext
-        ? `\n\nYou have access to a knowledge base with supplementary information. This knowledge base is ONLY for reference when filling fields - it does NOT describe the current document. Always trust the document's own text over the knowledge base when identifying what the document is.`
+        ? `\n\n${profileContext ? `${profileContext}\n\n` : ''}You have access to a knowledge base with supplementary information. This knowledge base is ONLY for reference when filling fields - it does NOT describe the current document. Always trust the document's own text over the knowledge base when identifying what the document is.`
         : '';
 
       const systemPrompt = `You are an AI assistant helping users understand and fill out PDF forms. You have been provided with OCR-detected text from a PDF document with coordinates${currentFile.lineFields ? ', and detected fillable line fields' : ''}.${corpusContext}
@@ -1102,46 +1085,32 @@ Be conversational, helpful, and concise.`;
       const formattedText = currentFile.textElements ? formatTextElements(currentFile.textElements) : '';
       const formattedLines = currentFile.lineFields ? formatLineFields(currentFile.lineFields) : '';
 
-      // Retrieve relevant chunks from knowledge corpus if selected
+      // Retrieve relevant chunks from knowledge corpus with brand profile context
       let knowledgeContext = '';
+      let profileContext = '';
       if (selectedCorpusId) {
-        try {
-          console.log(`[Clerk] Retrieving chunks for query: "${userMessage}"`);
-          const retrievalResponse = await fetch('/api/retrieve-chunks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              query: userMessage,
-              corpus_id: selectedCorpusId,
-              match_count: 10,
-              match_threshold: 0.5, // Lowered threshold for more results
-            }),
-          });
+        const selectedCorpus = corpora.find((c: Corpus) => c.id === selectedCorpusId);
+        const contextResult = await retrieveAndBuildContext({
+          query: userMessage,
+          corpusId: selectedCorpusId,
+          matchCount: 10,
+          matchThreshold: 0.5,
+          showToast: false, // Don't show toast for chat messages (less intrusive)
+          includeBrandProfile: true,
+          brandProfileId: selectedCorpus?.brandProfileId,
+        });
 
-          if (retrievalResponse.ok) {
-            const retrievalData = await retrievalResponse.json();
-            console.log(`[Clerk] Query retrieval response:`, retrievalData);
-            if (retrievalData.chunks && retrievalData.chunks.length > 0) {
-              knowledgeContext = '\n\n## Knowledge Base Context:\n' +
-                retrievalData.chunks.map((chunk: any, idx: number) =>
-                  `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
-                ).join('\n\n');
-              console.log(`[Clerk] Retrieved ${retrievalData.chunks.length} relevant chunks for user query`);
-            } else {
-              console.warn(`[Clerk] No relevant chunks found for query`);
-            }
-          } else {
-            const errorData = await retrievalResponse.json();
-            console.error('[Clerk] Query retrieval failed:', errorData);
-          }
-        } catch (error) {
-          console.error('[Clerk] Failed to retrieve chunks for query:', error);
-          // Continue without knowledge context
+        // Extract contexts
+        if (typeof contextResult === 'string') {
+          knowledgeContext = contextResult;
+        } else {
+          knowledgeContext = contextResult.knowledgeContext;
+          profileContext = contextResult.profileContext;
         }
       }
 
       const corpusContext = knowledgeContext
-        ? `\n\nYou have access to a knowledge base with supplementary information. This knowledge base is ONLY for reference when filling fields - it does NOT describe the current document. Always trust the document's own text over the knowledge base.`
+        ? `\n\n${profileContext ? `${profileContext}\n\n` : ''}You have access to a knowledge base with supplementary information. This knowledge base is ONLY for reference when filling fields - it does NOT describe the current document. Always trust the document's own text over the knowledge base.`
         : '';
 
       // Build document context with knowledge base BEFORE document (recency bias)

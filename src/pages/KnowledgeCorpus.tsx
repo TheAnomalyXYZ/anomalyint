@@ -12,6 +12,7 @@ import { Corpus, IngestionJob, SyncStatus, BrandProfile } from '../lib/types';
 import { profilesApi, corporaApi } from '../lib/supabase';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { cn } from '../lib/utils';
+import { retrieveAndBuildContext } from '../lib/knowledge-retrieval';
 import OpenAI from 'openai';
 
 export function KnowledgeCorpus() {
@@ -273,58 +274,34 @@ export function KnowledgeCorpus() {
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
 
     try {
-      // Retrieve relevant chunks from knowledge corpus
-      let knowledgeContext = '';
-      try {
-        console.log(`[KnowledgeCorpus] Retrieving chunks for query: "${userMessage}"`);
-        const retrievalResponse = await fetch('/api/retrieve-chunks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: userMessage,
-            corpus_id: selectedChatCorpusId,
-            match_count: 10,
-            match_threshold: 0.5,
-          }),
-        });
+      const selectedCorpus = corpora.find((c: Corpus) => c.id === selectedChatCorpusId);
 
-        if (retrievalResponse.ok) {
-          const retrievalData = await retrievalResponse.json();
-          console.log(`[KnowledgeCorpus] Retrieval response:`, retrievalData);
-          if (retrievalData.chunks && retrievalData.chunks.length > 0) {
-            knowledgeContext = '\n\n## Knowledge Base Context:\n' +
-              retrievalData.chunks.map((chunk: any, idx: number) =>
-                `[Source ${idx + 1}: ${chunk.file_name}]\n${chunk.content}`
-              ).join('\n\n');
-            console.log(`[KnowledgeCorpus] Retrieved ${retrievalData.chunks.length} relevant chunks`);
-            toast.success(`Found ${retrievalData.chunks.length} relevant documents`);
-          } else {
-            console.warn(`[KnowledgeCorpus] No chunks found in corpus`);
-            toast.info('No relevant documents found in knowledge base');
-          }
-        } else {
-          const errorData = await retrievalResponse.json();
-          console.error('[KnowledgeCorpus] Retrieval failed:', errorData);
-          toast.error('Failed to retrieve knowledge base: ' + errorData.message);
-        }
-      } catch (error) {
-        console.error('[KnowledgeCorpus] Failed to retrieve chunks:', error);
-        toast.error('Error accessing knowledge base');
-        // Continue without knowledge context
-      }
+      // Retrieve relevant chunks from knowledge corpus with brand profile context
+      const contextResult = await retrieveAndBuildContext({
+        query: userMessage,
+        corpusId: selectedChatCorpusId,
+        matchCount: 10,
+        matchThreshold: 0.5,
+        showToast: true,
+        includeBrandProfile: true,
+        brandProfileId: selectedCorpus?.brandProfileId,
+      });
 
-      const selectedCorpus = corpora.find(c => c.id === selectedChatCorpusId);
-      const systemPrompt = knowledgeContext
-        ? `You are an AI assistant with access to the "${selectedCorpus?.name}" knowledge base. Use the following context to answer the user's question accurately and helpfully.
+      // Extract contexts (handle both legacy string and new ContextResult)
+      const fullContext = typeof contextResult === 'string' ? contextResult : contextResult.fullContext;
+      const profileContext = typeof contextResult === 'string' ? '' : contextResult.profileContext;
 
-${knowledgeContext}
+      const systemPrompt = fullContext
+        ? `You are an AI assistant with access to the "${selectedCorpus?.name}" knowledge base.${profileContext ? `\n\n${profileContext}` : ''}\n\nUse the following context to answer the user's question accurately and helpfully.
+
+${typeof contextResult === 'string' ? contextResult : contextResult.knowledgeContext}
 
 Instructions:
 - Answer based on the provided knowledge base context when relevant
 - Cite sources by mentioning the file name when referencing specific information
 - If the context doesn't contain relevant information, say so and provide general assistance
 - Be conversational, helpful, and concise`
-        : `You are an AI assistant helping with questions about the "${selectedCorpus?.name}" knowledge base. The search didn't return relevant results, so provide general assistance and suggest the user rephrase their question.`;
+        : `You are an AI assistant helping with questions about the "${selectedCorpus?.name}" knowledge base.${profileContext ? ` ${profileContext}` : ''} The search didn't return relevant results, so provide general assistance and suggest the user rephrase their question.`;
 
       const completion = await openaiClient.current.chat.completions.create({
         model: 'gpt-4o-mini',
