@@ -691,12 +691,49 @@ Your role:
             variant="ghost"
             size="sm"
             onClick={loadSuggestedTweets}
-            disabled={loadingTweets}
+            disabled={loadingTweets || !selectedCorpusId || selectedCorpusId === 'none'}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loadingTweets ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
+
+        {/* Brand Selection */}
+        <Card className="mb-4 border-2">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">Brand Context:</Label>
+              </div>
+              <div className="flex-1">
+                <Select value={selectedCorpusId} onValueChange={setSelectedCorpusId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a brand/knowledge base" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No brand context</SelectItem>
+                    {corpora.map((corpus: Corpus) => (
+                      <SelectItem key={corpus.id} value={corpus.id}>
+                        {corpus.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {selectedCorpusId && selectedCorpusId !== 'none' && (
+              <p className="text-xs text-muted-foreground mt-2 ml-6">
+                Tweets will be generated with brand profile and knowledge base context
+              </p>
+            )}
+            {(!selectedCorpusId || selectedCorpusId === 'none') && (
+              <p className="text-xs text-amber-600 mt-2 ml-6">
+                ⚠️ Select a brand to generate context-aware tweets
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {loadingTweets ? (
           <div className="text-center py-12">
@@ -708,9 +745,14 @@ Your role:
             <Send className="h-12 w-12 text-muted-foreground mx-auto mb-4 mt-4" />
             <h3 className="text-lg font-semibold mb-2">No Tweet Suggestions Yet</h3>
             <p className="text-muted-foreground mb-4">
-              Click refresh to generate AI-powered tweet suggestions
+              {selectedCorpusId && selectedCorpusId !== 'none'
+                ? 'Click refresh to generate AI-powered tweet suggestions with brand context'
+                : 'Select a brand above, then click refresh to generate context-aware tweets'}
             </p>
-            <Button onClick={loadSuggestedTweets}>
+            <Button
+              onClick={loadSuggestedTweets}
+              disabled={!selectedCorpusId || selectedCorpusId === 'none'}
+            >
               <Send className="h-4 w-4 mr-2" />
               Generate Tweets
             </Button>
