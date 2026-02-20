@@ -1012,7 +1012,6 @@ Be conversational, helpful, and concise.`;
       });
 
       const message = completion.choices[0]?.message;
-      const summary = message?.content || 'I analyzed the document but could not generate a summary.';
 
       // Handle function calls if any
       if (message?.tool_calls && message.tool_calls.length > 0) {
@@ -1072,11 +1071,14 @@ Be conversational, helpful, and concise.`;
           toast.success(`AI suggested ${fills.length} field fills`);
         }
 
+        // Use custom message if AI didn't provide content but made function calls
+        const summary = message?.content || 'Here is what I filled:';
         setChatMessages([{
           role: 'assistant',
           content: summary + (functionResults ? `\n\n**Suggested Field Fills:**${functionResults}` : '')
         }]);
       } else {
+        const summary = message?.content || 'I analyzed the document but could not generate a summary.';
         setChatMessages([{ role: 'assistant', content: summary }]);
       }
     } catch (error) {
@@ -1205,7 +1207,6 @@ Help the user understand the document and assist with form filling. When the use
       });
 
       const message = completion.choices[0]?.message;
-      const assistantMessage = message?.content || 'I apologize, but I could not generate a response.';
 
       // Handle function calls if any
       if (message?.tool_calls && message.tool_calls.length > 0) {
@@ -1274,11 +1275,14 @@ Help the user understand the document and assist with form filling. When the use
           toast.success(`AI suggested fills for ${message.tool_calls.length} fields`);
         }
 
+        // Use custom message if AI didn't provide content but made function calls
+        const assistantMessage = message?.content || 'Here is what I filled:';
         setChatMessages(prev => [...prev, {
           role: 'assistant',
           content: assistantMessage + (functionResults ? `\n\n**Suggested Field Fills:**${functionResults}` : '')
         }]);
       } else {
+        const assistantMessage = message?.content || 'I apologize, but I could not generate a response.';
         setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
       }
     } catch (error) {
