@@ -79,7 +79,7 @@ export function AppShell({ children }: AppShellProps) {
               to="/overview"
               className="flex items-center justify-center lg:justify-start gap-3 hover:opacity-80 transition-opacity w-full"
             >
-              <div className="w-8 h-8 flex-shrink-0 gradient-primary rounded-lg flex items-center justify-center text-white">
+              <div className="w-8 h-8 flex-shrink-0 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center text-white">
                 <Sparkles className="h-4 w-4" />
               </div>
               <span className="text-xl font-semibold text-primary hidden lg:block">

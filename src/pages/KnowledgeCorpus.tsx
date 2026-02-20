@@ -578,7 +578,7 @@ Instructions:
           <Button
             onClick={handleConnectGoogle}
             disabled={!selectedProfileId || !selectedFolderId}
-            className="w-full gradient-primary text-white border-0"
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 font-semibold"
           >
             <Database className="h-4 w-4 mr-2" />
             Connect with Google Drive
@@ -639,7 +639,7 @@ Instructions:
                         onClick={() => handleOpenChat(corpus.id)}
                         size="sm"
                         variant="outline"
-                        className="gradient-primary text-white border-0"
+                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 font-semibold"
                       >
                         <MessageSquare className="h-4 w-4 mr-2" />
                         Chat
@@ -821,7 +821,7 @@ Instructions:
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col p-0">
           <DialogHeader className="p-6 pb-4 border-b">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 gradient-primary text-white rounded-lg">
+              <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg">
                 <Brain className="h-5 w-5" />
               </div>
               <div className="flex-1">
@@ -878,7 +878,7 @@ Instructions:
                   )}
                 >
                   {message.role === 'assistant' && (
-                    <div className="flex items-center justify-center w-8 h-8 gradient-primary text-white rounded-lg flex-shrink-0">
+                    <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg flex-shrink-0">
                       <Brain className="h-4 w-4" />
                     </div>
                   )}
@@ -923,7 +923,7 @@ Instructions:
               <Button
                 onClick={handleSendMessage}
                 disabled={!chatInput.trim() || !selectedChatCorpusId || selectedChatCorpusId === 'none'}
-                className="gradient-primary text-white border-0"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 font-semibold"
               >
                 <Send className="h-4 w-4" />
               </Button>
