@@ -275,8 +275,8 @@
     color: var(--text-secondary);
   }
 
-  /* Override paragraph color inside tooltips to ensure white text */
-  [data-slot="tooltip-content"] p {
+  /* Override paragraph color inside any element with text-white class */
+  .text-white p {
     color: white;
   }
 
