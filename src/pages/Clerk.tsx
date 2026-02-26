@@ -936,7 +936,9 @@ Your role:
 2. Analyze the document structure and understand what type of form it is
 3. Help users understand what information is needed
 4. When the user explicitly asks you to fill fields, use the fill_form_field function to suggest values using information from the knowledge base
-5. Only use fill_form_field when the user requests it
+5. When the user asks to delete a previously suggested fill, use the delete_form_field function
+6. For bulk operations affecting multiple fields (filling, editing, or deleting more than one), FIRST summarize what you are about to do and ask for confirmation. Only call the functions AFTER the user confirms
+7. Only use these functions when the user requests it
 
 CRITICAL: The document's own text is ALWAYS correct. The knowledge base is only supplementary reference material.
 
@@ -957,31 +959,54 @@ Be conversational, helpful, and concise.`;
 
       userPrompt += `\n\nFirst, tell me: What company or organization is this document from (based on the document's title/header)? Then give me a summary of what this document is and what fields need to be filled.`;
 
-      const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [{
-        type: 'function',
-        function: {
-          name: 'fill_form_field',
-          description: 'Suggest a value to fill in a specific form field by field index',
-          parameters: {
-            type: 'object',
-            properties: {
-              fieldIndex: {
-                type: 'number',
-                description: 'The index of the field to fill (from the Fillable Line Fields list)'
+      const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [
+        {
+          type: 'function',
+          function: {
+            name: 'fill_form_field',
+            description: 'Suggest a value to fill in a specific form field by field index',
+            parameters: {
+              type: 'object',
+              properties: {
+                fieldIndex: {
+                  type: 'number',
+                  description: 'The index of the field to fill (from the Fillable Line Fields list)'
+                },
+                value: {
+                  type: 'string',
+                  description: 'The suggested value to fill in this field'
+                },
+                reasoning: {
+                  type: 'string',
+                  description: 'Brief explanation of why this value is appropriate'
+                }
               },
-              value: {
-                type: 'string',
-                description: 'The suggested value to fill in this field'
+              required: ['fieldIndex', 'value', 'reasoning']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'delete_form_field',
+            description: 'Delete a previously suggested fill for a specific form field',
+            parameters: {
+              type: 'object',
+              properties: {
+                fieldIndex: {
+                  type: 'number',
+                  description: 'The index of the field fill to delete (same as fill_form_field fieldIndex)'
+                },
+                reasoning: {
+                  type: 'string',
+                  description: 'Brief explanation of why this field is being deleted'
+                }
               },
-              reasoning: {
-                type: 'string',
-                description: 'Brief explanation of why this value is appropriate'
-              }
-            },
-            required: ['fieldIndex', 'value', 'reasoning']
+              required: ['fieldIndex', 'reasoning']
+            }
           }
         }
-      }] : [];
+      ] : [];
 
       const completion = await openaiClient.current.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -1023,6 +1048,20 @@ Be conversational, helpful, and concise.`;
               }
             } catch (error) {
               console.error('Error processing fill_form_field call:', error);
+            }
+          }
+
+          if (toolCall.function.name === 'delete_form_field') {
+            try {
+              const args = JSON.parse(toolCall.function.arguments);
+              const existingIndex = fills.findIndex(f => f.fieldIndex === args.fieldIndex);
+              if (existingIndex >= 0) {
+                const deleted = fills[existingIndex];
+                fills.splice(existingIndex, 1);
+                functionResults += `\n✗ Deleted Field ${args.fieldIndex}${deleted.label ? ` (${deleted.label})` : ''}: (${args.reasoning})`;
+              }
+            } catch (error) {
+              console.error('Error processing delete_form_field call:', error);
             }
           }
         }
@@ -1130,7 +1169,13 @@ ${documentContext}${corpusContext}
 
 CRITICAL: The document's own text is ALWAYS correct. The knowledge base is only supplementary reference material for filling fields.
 
-Help the user understand the document and assist with form filling. When the user asks you to fill out the form or suggests values, use the fill_form_field function to specify which fields to fill and with what values. Be concise and helpful.`;
+You have two tools available:
+- fill_form_field: suggest or update a value for a specific field
+- delete_form_field: remove a previously suggested fill for a specific field
+
+When the user asks to fill, edit, or delete multiple fields at once, FIRST summarize exactly what you are about to do and ask for confirmation. Only call the tool functions AFTER the user confirms. For single-field operations, you may proceed directly.
+
+Help the user understand the document and assist with form filling. Be concise and helpful.`;
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
@@ -1141,31 +1186,54 @@ Help the user understand the document and assist with form filling. When the use
         { role: 'user', content: userMessage }
       ];
 
-      const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [{
-        type: 'function',
-        function: {
-          name: 'fill_form_field',
-          description: 'Suggest a value to fill in a specific form field by field index',
-          parameters: {
-            type: 'object',
-            properties: {
-              fieldIndex: {
-                type: 'number',
-                description: 'The index of the field to fill (from the Fillable Line Fields list)'
+      const tools: OpenAI.Chat.ChatCompletionTool[] = currentFile.lineFields ? [
+        {
+          type: 'function',
+          function: {
+            name: 'fill_form_field',
+            description: 'Suggest a value to fill in a specific form field by field index',
+            parameters: {
+              type: 'object',
+              properties: {
+                fieldIndex: {
+                  type: 'number',
+                  description: 'The index of the field to fill (from the Fillable Line Fields list)'
+                },
+                value: {
+                  type: 'string',
+                  description: 'The suggested value to fill in this field'
+                },
+                reasoning: {
+                  type: 'string',
+                  description: 'Brief explanation of why this value is appropriate'
+                }
               },
-              value: {
-                type: 'string',
-                description: 'The suggested value to fill in this field'
+              required: ['fieldIndex', 'value', 'reasoning']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'delete_form_field',
+            description: 'Delete a previously suggested fill for a specific form field',
+            parameters: {
+              type: 'object',
+              properties: {
+                fieldIndex: {
+                  type: 'number',
+                  description: 'The index of the field fill to delete (same as fill_form_field fieldIndex)'
+                },
+                reasoning: {
+                  type: 'string',
+                  description: 'Brief explanation of why this field is being deleted'
+                }
               },
-              reasoning: {
-                type: 'string',
-                description: 'Brief explanation of why this value is appropriate'
-              }
-            },
-            required: ['fieldIndex', 'value', 'reasoning']
+              required: ['fieldIndex', 'reasoning']
+            }
           }
         }
-      }] : [];
+      ] : [];
 
       const completion = await openaiClient.current.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -1179,7 +1247,7 @@ Help the user understand the document and assist with form filling. When the use
 
       // Handle function calls if any
       if (message?.tool_calls && message.tool_calls.length > 0) {
-        const fills: FieldFill[] = currentFile.suggestedFills || [];
+        const fills: FieldFill[] = [...(currentFile.suggestedFills || [])];
         let functionResults = '';
 
         for (const toolCall of message.tool_calls) {
@@ -1215,40 +1283,53 @@ Help the user understand the document and assist with form filling. When the use
               console.error('Error processing fill_form_field call:', error);
             }
           }
+
+          if (toolCall.function.name === 'delete_form_field') {
+            try {
+              const args = JSON.parse(toolCall.function.arguments);
+              const existingIndex = fills.findIndex(f => f.fieldIndex === args.fieldIndex);
+              if (existingIndex >= 0) {
+                const deleted = fills[existingIndex];
+                fills.splice(existingIndex, 1);
+                functionResults += `\n✗ Deleted Field ${args.fieldIndex}${deleted.label ? ` (${deleted.label})` : ''}: (${args.reasoning})`;
+              }
+            } catch (error) {
+              console.error('Error processing delete_form_field call:', error);
+            }
+          }
         }
 
-        // Update file with suggested fills
-        if (fills.length > 0) {
-          setCurrentFile(prev => prev ? { ...prev, suggestedFills: fills } : null);
-          setFiles(prev => prev.map(f =>
-            f.id === currentFile.id ? { ...f, suggestedFills: fills } : f
-          ));
+        // Update state and save to DB whenever tool calls were processed (fills may be empty after deletions)
+        setCurrentFile(prev => prev ? { ...prev, suggestedFills: fills } : null);
+        setFiles(prev => prev.map(f =>
+          f.id === currentFile.id ? { ...f, suggestedFills: fills } : f
+        ));
 
-          // Save suggestions to database
-          try {
-            const { error: dbError } = await supabase
-              .from('clerk_documents')
-              .update({
-                suggested_fills: fills,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', currentFile.id);
+        try {
+          const { error: dbError } = await supabase
+            .from('clerk_documents')
+            .update({
+              suggested_fills: fills,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', currentFile.id);
 
-            if (dbError) {
-              console.error('Failed to save suggestions to database:', dbError);
-            }
-          } catch (error) {
-            console.error('Error saving suggestions:', error);
+          if (dbError) {
+            console.error('Failed to save suggestions to database:', dbError);
           }
+        } catch (error) {
+          console.error('Error saving suggestions:', error);
+        }
 
-          toast.success(`AI suggested fills for ${message.tool_calls.length} fields`);
+        if (functionResults) {
+          toast.success(`AI updated ${message.tool_calls.length} field(s)`);
         }
 
         // Use custom message if AI didn't provide content but made function calls
-        const assistantMessage = message?.content || 'Here is what I filled:';
+        const assistantMessage = message?.content || 'Done. Here are the changes:';
         setChatMessages(prev => [...prev, {
           role: 'assistant',
-          content: assistantMessage + (functionResults ? `\n\n**Suggested Field Fills:**${functionResults}` : '')
+          content: assistantMessage + (functionResults ? `\n\n**Field Changes:**${functionResults}` : '')
         }]);
       } else {
         const assistantMessage = message?.content || 'I apologize, but I could not generate a response.';
