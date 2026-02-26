@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libsm6 \
     tesseract-ocr \
     tesseract-ocr-eng \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -18,6 +19,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
+
+# Download free handwriting font for PDF generation
+RUN mkdir -p /app/fonts && \
+    curl -fL "https://github.com/google/fonts/raw/main/ofl/dancingscript/static/DancingScript-Regular.ttf" \
+    -o /app/fonts/DancingScript-Regular.ttf
 
 # Copy application code
 COPY . .

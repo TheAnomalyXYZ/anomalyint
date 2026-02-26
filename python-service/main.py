@@ -798,6 +798,15 @@ async def annotate_pdf(request: AnnotatePdfRequest):
             detail=f"PDF annotation failed: {str(e)}"
         )
 
+# Font mapping for fill_form_field font names → PyMuPDF kwargs
+FONT_MAP = {
+    'Arial':            {'fontname': 'helv'},
+    'Times New Roman':  {'fontname': 'tibo'},
+    'Courier New':      {'fontname': 'cour'},
+    'Georgia':          {'fontname': 'tibo'},
+    'Lucida Handwriting': {'fontfile': '/app/fonts/DancingScript-Regular.ttf'},
+}
+
 @app.post("/generate-filled-pdf")
 async def generate_filled_pdf(request: GenerateFilledPdfRequest):
     """
@@ -887,11 +896,14 @@ async def generate_filled_pdf(request: GenerateFilledPdfRequest):
                     text_x = x - x_offset  # Remove left padding
                     text_y = y - y_padding  # Position baseline just above the line
 
+                    font_name = fill.get('font', 'Arial')
+                    font_kwargs = FONT_MAP.get(font_name, FONT_MAP['Arial'])
                     page.insert_text(
                         fitz.Point(text_x, text_y),
                         value,
                         fontsize=font_size,
-                        color=(0.11764706, 0.25098039, 0.69019608)  # #1e40af in RGB
+                        color=(0.11764706, 0.25098039, 0.69019608),  # #1e40af in RGB
+                        **font_kwargs
                     )
 
                 # Render drawing elements

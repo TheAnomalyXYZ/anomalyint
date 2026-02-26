@@ -15,7 +15,16 @@ interface FieldFill {
   height: number;
   page: number;
   label?: string;
+  font?: string;
 }
+
+const CANVAS_FONT_MAP: Record<string, string> = {
+  'Arial': 'Arial',
+  'Times New Roman': '"Times New Roman", serif',
+  'Courier New': '"Courier New", monospace',
+  'Lucida Handwriting': '"Dancing Script", cursive',
+  'Georgia': 'Georgia, serif',
+};
 
 interface PdfCanvasViewerProps {
   pdfUrl: string;
@@ -267,7 +276,8 @@ export function PdfCanvasViewer({
           const canvasX = fill.x * pdfToCanvasScale;
           const canvasY = fill.y * pdfToCanvasScale;
 
-          context.font = `${aiFillsFontSize}px Arial`;
+          const fillFontFamily = CANVAS_FONT_MAP[fill.font || 'Arial'] || 'Arial';
+          context.font = `${aiFillsFontSize}px ${fillFontFamily}`;
           const textMetrics = context.measureText(fill.value);
           const textWidth = textMetrics.width;
           const textHeight = aiFillsFontSize + 6;
@@ -351,7 +361,8 @@ export function PdfCanvasViewer({
 
       // Draw text
       context.fillStyle = '#1e40af';
-      context.font = `bold ${aiFillsFontSize}px Arial`;
+      const fontFamily = CANVAS_FONT_MAP[fill.font || 'Arial'] || 'Arial';
+      context.font = `bold ${aiFillsFontSize}px ${fontFamily}`;
       context.textBaseline = 'top';
       context.textAlign = 'left'; // Reset alignment to prevent state persistence
       const padding = 8;

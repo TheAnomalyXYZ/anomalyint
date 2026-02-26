@@ -44,6 +44,7 @@ interface FieldFill {
   value: string;
   label?: string;
   page: number;
+  font?: string;
 }
 
 interface DrawingElement {
@@ -969,6 +970,11 @@ Your role:
 6. For bulk operations affecting multiple fields (filling, editing, or deleting more than one), FIRST summarize what you are about to do and ask for confirmation. Only call the functions AFTER the user confirms
 7. Only use these functions when the user requests it
 
+FONT RULES:
+- Always specify a font when calling fill_form_field
+- Use "Lucida Handwriting" for signature fields, name fields, or any field that should look handwritten
+- Use "Arial" for all other fields (dates, amounts, checkboxes, addresses, etc.) unless the user specifies otherwise
+
 CRITICAL: The document's own text is ALWAYS correct. The knowledge base is only supplementary reference material.
 
 Be conversational, helpful, and concise.`;
@@ -1008,6 +1014,11 @@ Be conversational, helpful, and concise.`;
                 reasoning: {
                   type: 'string',
                   description: 'Brief explanation of why this value is appropriate'
+                },
+                font: {
+                  type: 'string',
+                  enum: ['Arial', 'Times New Roman', 'Courier New', 'Lucida Handwriting', 'Georgia'],
+                  description: 'Font for the field value. Use "Lucida Handwriting" for signature, name, or handwritten fields. Default is "Arial".'
                 }
               },
               required: ['fieldIndex', 'value', 'reasoning']
@@ -1070,7 +1081,8 @@ Be conversational, helpful, and concise.`;
                   height: field.height,
                   value: args.value,
                   label: field.label,
-                  page: field.page || 1
+                  page: field.page || 1,
+                  font: args.font || 'Arial',
                 });
 
                 functionResults += `\n✓ Field ${args.fieldIndex}: "${args.value}" (${args.reasoning})`;
@@ -1208,6 +1220,10 @@ You have two tools available:
 - fill_form_field: suggest or update a value for a specific field
 - delete_form_field: remove a previously suggested fill for a specific field
 
+FONT RULES (always specify font in fill_form_field):
+- Use "Lucida Handwriting" for signature fields, name fields, or any handwritten-style field
+- Use "Arial" for all other fields (dates, amounts, addresses, etc.) unless the user specifies otherwise
+
 When the user asks to fill, edit, or delete multiple fields at once, FIRST summarize exactly what you are about to do and ask for confirmation. Only call the tool functions AFTER the user confirms. For single-field operations, you may proceed directly.
 
 Help the user understand the document and assist with form filling. Be concise and helpful.`;
@@ -1241,6 +1257,11 @@ Help the user understand the document and assist with form filling. Be concise a
                 reasoning: {
                   type: 'string',
                   description: 'Brief explanation of why this value is appropriate'
+                },
+                font: {
+                  type: 'string',
+                  enum: ['Arial', 'Times New Roman', 'Courier New', 'Lucida Handwriting', 'Georgia'],
+                  description: 'Font for the field value. Use "Lucida Handwriting" for signature, name, or handwritten fields. Default is "Arial".'
                 }
               },
               required: ['fieldIndex', 'value', 'reasoning']
@@ -1303,7 +1324,8 @@ Help the user understand the document and assist with form filling. Be concise a
                   height: field.height,
                   value: args.value,
                   label: field.label,
-                  page: field.page || 1
+                  page: field.page || 1,
+                  font: args.font || 'Arial',
                 };
 
                 if (existingIndex >= 0) {
