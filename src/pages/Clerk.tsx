@@ -78,6 +78,7 @@ interface UploadedFile {
   totalPages?: number;
   suggestedFills?: FieldFill[];
   drawingElements?: DrawingElement[];
+  chatHistory?: Record<string, Array<{ role: 'user' | 'assistant'; content: string }>>;
 }
 
 interface LineDetectionParams {
@@ -103,6 +104,13 @@ export function Clerk() {
   const [selectedCorpusId, setSelectedCorpusId] = useState<string>("");
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfViewerFile, setPdfViewerFile] = useState<UploadedFile | null>(null);
+
+  // Load chat history when a corpus is selected for the current file
+  useEffect(() => {
+    if (!selectedCorpusId || !currentFile) return;
+    const history = currentFile.chatHistory?.[selectedCorpusId] || [];
+    setChatMessages(history);
+  }, [selectedCorpusId, currentFile?.id]);
 
   // Track expanded sections per file: { [fileId]: { lineFields: boolean, tableFields: boolean, textElements: boolean } }
   const [expandedSections, setExpandedSections] = useState<Record<string, Record<string, boolean>>>({});
@@ -184,6 +192,7 @@ export function Clerk() {
           textElements: doc.text_elements,
           suggestedFills: doc.suggested_fills,
           drawingElements: doc.drawing_elements || [],
+          chatHistory: doc.chat_history || {},
           totalPages: doc.total_pages,
           filledUrl: doc.filled_url || undefined,
         }));
@@ -805,6 +814,25 @@ export function Clerk() {
     ).join('\n\n');
   };
 
+  const saveChatHistory = async (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+    if (!currentFile || !selectedCorpusId) return;
+    const updatedHistory = {
+      ...(currentFile.chatHistory || {}),
+      [selectedCorpusId]: messages,
+    };
+    setCurrentFile(prev => prev ? { ...prev, chatHistory: updatedHistory } : null);
+    setFiles(prev => prev.map(f => f.id === currentFile.id ? { ...f, chatHistory: updatedHistory } : f));
+    try {
+      const { error } = await supabase
+        .from('clerk_documents')
+        .update({ chat_history: updatedHistory, updated_at: new Date().toISOString() })
+        .eq('id', currentFile.id);
+      if (error) console.error('Failed to save chat history:', error);
+    } catch (err) {
+      console.error('Error saving chat history:', err);
+    }
+  };
+
   const handleOpenChat = async (file: UploadedFile) => {
     // Check if text elements exist
     if (!file.textElements || file.textElements.length === 0) {
@@ -822,6 +850,7 @@ export function Clerk() {
     setChatOpen(true);
     setChatMessages([]);
     setChatInput("");
+    setSelectedCorpusId("");
   };
 
   // Handle updates to suggested fills when overlays are dragged
@@ -1095,21 +1124,27 @@ Be conversational, helpful, and concise.`;
 
         // Use custom message if AI didn't provide content but made function calls
         const summary = message?.content || 'Here is what I filled:';
-        setChatMessages([{
+        const initialMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [{
           role: 'assistant',
           content: summary + (functionResults ? `\n\n**Suggested Field Fills:**${functionResults}` : '')
-        }]);
+        }];
+        setChatMessages(initialMessages);
+        await saveChatHistory(initialMessages);
       } else {
         const summary = message?.content || 'I analyzed the document but could not generate a summary.';
-        setChatMessages([{ role: 'assistant', content: summary }]);
+        const initialMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [{ role: 'assistant', content: summary }];
+        setChatMessages(initialMessages);
+        await saveChatHistory(initialMessages);
       }
     } catch (error) {
       console.error('Error generating document summary:', error);
       toast.error('Failed to generate document summary');
-      setChatMessages([{
+      const fallbackMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [{
         role: 'assistant',
         content: `I'm ready to help you with ${currentFile.name}. I detected ${currentFile.textElements!.length} text elements. What would you like to know?`
-      }]);
+      }];
+      setChatMessages(fallbackMessages);
+      await saveChatHistory(fallbackMessages);
     }
   };
 
@@ -1326,22 +1361,34 @@ Help the user understand the document and assist with form filling. Be concise a
         }
 
         // Use custom message if AI didn't provide content but made function calls
-        const assistantMessage = message?.content || 'Done. Here are the changes:';
-        setChatMessages(prev => [...prev, {
-          role: 'assistant',
-          content: assistantMessage + (functionResults ? `\n\n**Field Changes:**${functionResults}` : '')
-        }]);
+        const assistantContent = (message?.content || 'Done. Here are the changes:') + (functionResults ? `\n\n**Field Changes:**${functionResults}` : '');
+        const updatedMessages = [
+          ...chatMessages,
+          { role: 'user' as const, content: userMessage },
+          { role: 'assistant' as const, content: assistantContent },
+        ];
+        setChatMessages(updatedMessages);
+        await saveChatHistory(updatedMessages);
       } else {
-        const assistantMessage = message?.content || 'I apologize, but I could not generate a response.';
-        setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+        const assistantContent = message?.content || 'I apologize, but I could not generate a response.';
+        const updatedMessages = [
+          ...chatMessages,
+          { role: 'user' as const, content: userMessage },
+          { role: 'assistant' as const, content: assistantContent },
+        ];
+        setChatMessages(updatedMessages);
+        await saveChatHistory(updatedMessages);
       }
     } catch (error) {
       console.error('Chat error:', error);
       toast.error('Failed to send message');
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.'
-      }]);
+      const updatedMessages = [
+        ...chatMessages,
+        { role: 'user' as const, content: userMessage },
+        { role: 'assistant' as const, content: 'Sorry, I encountered an error. Please try again.' },
+      ];
+      setChatMessages(updatedMessages);
+      await saveChatHistory(updatedMessages);
     }
   };
 

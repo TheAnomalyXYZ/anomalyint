@@ -539,6 +539,7 @@ model clerk_documents {
   text_elements   Json?
   suggested_fills Json?
   drawing_elements Json?
+  chat_history    Json?
   total_pages     Int?
   filled_url      String?
   uploaded_at     DateTime             @default(now())
