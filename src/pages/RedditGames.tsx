@@ -311,27 +311,7 @@ export function RedditGames() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Genres</CardTitle>
-            <CardDescription>Game count per genre (case-insensitive match).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {GENRES.map(g => (
-                <span
-                  key={g}
-                  className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm"
-                >
-                  <span>{g}</span>
-                  <span className="text-xs font-medium text-muted-foreground">{genreCounts[g]}</span>
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -466,6 +446,26 @@ export function RedditGames() {
               </Table>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Genres</CardTitle>
+          <CardDescription>Game count per genre (case-insensitive match).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {GENRES.map(g => (
+              <span
+                key={g}
+                className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm"
+              >
+                <span>{g}</span>
+                <span className="text-xs font-medium text-muted-foreground">{genreCounts[g]}</span>
+              </span>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
