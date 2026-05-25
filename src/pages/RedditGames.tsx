@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -30,8 +30,11 @@ interface TrackedGame {
   genre: string | null;
   moderators: string[];
   screenshots: string[];
+  screenshots_full: string[];
   tracked_game_weekly_metrics: WeeklyMetric[];
 }
+
+type GenreSortKey = "genre" | "curr" | "prev" | "delta" | "pct";
 
 type ListingFilter = "all" | "popular" | "new";
 type SortKey = "name" | "users" | "contributions";
@@ -71,7 +74,10 @@ function latestMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
 }
 
 export function RedditGames() {
+  const navigate = useNavigate();
   const [games, setGames] = useState<TrackedGame[]>([]);
+  const [genreSortKey, setGenreSortKey] = useState<GenreSortKey>("delta");
+  const [genreSortDir, setGenreSortDir] = useState<SortDir>("desc");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
@@ -257,6 +263,32 @@ export function RedditGames() {
       .map(([week, users]) => ({ week, users }));
   }, [games]);
 
+  const firstScreenshotByGameId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of games) {
+      if (g.screenshots?.[0]) m.set(g.id, g.screenshots[0]);
+    }
+    return m;
+  }, [games]);
+
+  const newHotGames = useMemo(() => {
+    const ranked = games
+      .map(g => ({ game: g, users: latestMetric(g.tracked_game_weekly_metrics)?.users ?? 0 }))
+      .filter(x => x.game.screenshots?.[0])
+      .sort((a, b) => b.users - a.users)
+      .slice(0, 10);
+    // Deterministic Pinterest-style sizing per game id
+    const heights = [180, 220, 160, 260, 200, 240, 180, 220, 160, 200];
+    return ranked.map((r, i) => ({
+      gameId: r.game.id,
+      gameName: r.game.game_name,
+      url: r.game.screenshots[0],
+      height: heights[i % heights.length],
+      tilt: ((r.game.id.charCodeAt(0) + i) % 5) - 2,
+      users: r.users,
+    }));
+  }, [games]);
+
   const allScreenshots = useMemo(() => {
     const items: { url: string; gameId: string; gameName: string }[] = [];
     for (const g of games) {
@@ -317,13 +349,40 @@ export function RedditGames() {
     return { topGames, topGenres };
   }, [games]);
 
+  const sortedTopGenres = useMemo(() => {
+    const dir = genreSortDir === "asc" ? 1 : -1;
+    return [...growth.topGenres].sort((a, b) => {
+      if (genreSortKey === "genre") return a.genre.localeCompare(b.genre) * dir;
+      const av = (a[genreSortKey] ?? null) as number | null;
+      const bv = (b[genreSortKey] ?? null) as number | null;
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (av - bv) * dir;
+    });
+  }, [growth.topGenres, genreSortKey, genreSortDir]);
+
+  const toggleGenreSort = (key: GenreSortKey) => {
+    if (genreSortKey === key) {
+      setGenreSortDir(d => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setGenreSortKey(key);
+      setGenreSortDir(key === "genre" ? "asc" : "desc");
+    }
+  };
+
+  const GenreSortIcon = ({ k }: { k: GenreSortKey }) => {
+    if (genreSortKey !== k) return <ArrowUpDown className="h-3 w-3 opacity-50 inline-block ml-1" />;
+    return genreSortDir === "asc" ? <ArrowUp className="h-3 w-3 inline-block ml-1" /> : <ArrowDown className="h-3 w-3 inline-block ml-1" />;
+  };
+
   const SortIcon = ({ k }: { k: SortKey }) => {
     if (sortKey !== k) return <ArrowUpDown className="h-3 w-3 opacity-50" />;
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 min-w-0 max-w-full">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
@@ -421,8 +480,44 @@ export function RedditGames() {
         </Card>
       </div>
 
+      {newHotGames.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle className="text-base">New Hot Games</CardTitle>
+            <CardDescription>New trending games.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3 [column-fill:_balance]">
+              {newHotGames.map(g => (
+                <Link
+                  key={g.gameId}
+                  to={`/reddit-games/${g.gameId}`}
+                  title={g.gameName}
+                  style={{ rotate: `${g.tilt}deg` }}
+                  className="relative mb-3 inline-block w-full overflow-hidden rounded-md border bg-background break-inside-avoid hover:ring-2 hover:ring-primary transition"
+                >
+                  <img
+                    src={g.url}
+                    alt={g.gameName}
+                    loading="lazy"
+                    style={{ height: g.height }}
+                    className="w-full object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent text-white px-2 py-1.5">
+                    <div className="text-xs font-medium line-clamp-1">{g.gameName}</div>
+                    {g.users > 0 && (
+                      <div className="text-[10px] opacity-80">{compactFmt(g.users)} weekly users</div>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 min-w-0">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Trophy className="h-4 w-4" /> Top Games by Weekly Users
@@ -437,15 +532,40 @@ export function RedditGames() {
             ) : (
               <ResponsiveContainer width="100%" height={Math.max(260, topGames.length * 32)}>
                 <BarChart
-                  data={topGames.map(t => ({ name: t.game.game_name, users: t.latest!.users }))}
+                  data={topGames.map(t => ({
+                    name: t.game.game_name,
+                    users: t.latest!.users,
+                    gameId: t.game.id,
+                    screenshot: firstScreenshotByGameId.get(t.game.id) ?? null,
+                  }))}
                   layout="vertical"
                   margin={{ left: 12, right: 24, top: 8, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis type="number" className="text-xs" tickFormatter={(v: number) => compactFmt(v)} />
-                  <YAxis type="category" dataKey="name" width={160} interval={0} className="text-xs" />
-                  <Tooltip formatter={(v: number) => numberFmt(v)} />
-                  <Bar dataKey="users" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                  <YAxis type="category" dataKey="name" width={160} interval={0} className="text-xs cursor-pointer" />
+                  <Tooltip
+                    content={({ active, payload }: any) => {
+                      if (!active || !payload?.[0]?.payload) return null;
+                      const d = payload[0].payload;
+                      return (
+                        <div className="rounded-md border bg-background shadow-md p-2 text-xs space-y-1 max-w-[220px]">
+                          <div className="font-medium">{d.name}</div>
+                          <div className="text-muted-foreground">{numberFmt(d.users)} weekly users</div>
+                          {d.screenshot && (
+                            <img src={d.screenshot} alt={d.name} className="w-full h-28 object-cover rounded" />
+                          )}
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar
+                    dataKey="users"
+                    fill="#6366f1"
+                    radius={[0, 4, 4, 0]}
+                    style={{ cursor: "pointer" }}
+                    onClick={(d: any) => d?.gameId && navigate(`/reddit-games/${d.gameId}`)}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -466,11 +586,22 @@ export function RedditGames() {
               <ul className="space-y-2">
                 {growth.topGames.map(({ game, curr, delta, pct }) => {
                   const positive = delta >= 0;
+                  const shot = firstScreenshotByGameId.get(game.id);
+                  const NameLink = (
+                    <Link to={`/reddit-games/${game.id}`} className="font-medium truncate hover:text-primary hover:underline">
+                      {game.game_name}
+                    </Link>
+                  );
                   return (
                     <li key={game.id} className="flex items-center justify-between gap-3 text-sm">
-                      <Link to={`/reddit-games/${game.id}`} className="font-medium truncate hover:text-primary hover:underline">
-                        {game.game_name}
-                      </Link>
+                      {shot ? (
+                        <HoverCard openDelay={150} closeDelay={50}>
+                          <HoverCardTrigger asChild>{NameLink}</HoverCardTrigger>
+                          <HoverCardContent side="left" className="w-64 p-2">
+                            <img src={shot} alt={game.game_name} className="w-full h-40 object-cover rounded" loading="lazy" />
+                          </HoverCardContent>
+                        </HoverCard>
+                      ) : NameLink}
                       <span className="flex items-center gap-2 shrink-0">
                         <span className="font-mono text-xs text-muted-foreground">{compactFmt(curr)}</span>
                         <span className={`inline-flex items-center gap-0.5 font-mono text-xs ${positive ? "text-green-600" : "text-red-600"}`}>
@@ -502,15 +633,35 @@ export function RedditGames() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Genre</TableHead>
-                    <TableHead className="text-right">This Week</TableHead>
-                    <TableHead className="text-right">Last Week</TableHead>
-                    <TableHead className="text-right">Δ Users</TableHead>
-                    <TableHead className="text-right">Growth</TableHead>
+                    <TableHead>
+                      <button onClick={() => toggleGenreSort("genre")} className="inline-flex items-center hover:text-foreground">
+                        Genre <GenreSortIcon k="genre" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button onClick={() => toggleGenreSort("curr")} className="inline-flex items-center hover:text-foreground">
+                        This Week <GenreSortIcon k="curr" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button onClick={() => toggleGenreSort("prev")} className="inline-flex items-center hover:text-foreground">
+                        Last Week <GenreSortIcon k="prev" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button onClick={() => toggleGenreSort("delta")} className="inline-flex items-center hover:text-foreground">
+                        Δ Users <GenreSortIcon k="delta" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button onClick={() => toggleGenreSort("pct")} className="inline-flex items-center hover:text-foreground">
+                        Growth <GenreSortIcon k="pct" />
+                      </button>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {growth.topGenres.map(g => {
+                  {sortedTopGenres.map(g => {
                     const positive = g.delta >= 0;
                     return (
                       <TableRow key={g.genre}>

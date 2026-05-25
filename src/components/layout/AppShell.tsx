@@ -149,7 +149,7 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="flex h-16 items-center gap-4 bg-background px-6">
           <SidebarTrigger />
           <div className="flex-1 flex items-center gap-4">
@@ -174,7 +174,7 @@ export function AppShell({ children }: AppShellProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6 min-w-0 overflow-x-hidden">{children}</main>
       </SidebarInset>
 
       {/* Floating RAG Chat Button */}
