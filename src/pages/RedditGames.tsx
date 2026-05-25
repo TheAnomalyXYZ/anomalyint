@@ -27,6 +27,7 @@ interface TrackedGame {
   listings: string[];
   genre: string | null;
   moderators: string[];
+  screenshots: string[];
   tracked_game_weekly_metrics: WeeklyMetric[];
 }
 
@@ -79,6 +80,8 @@ export function RedditGames() {
   const [draftGenre, setDraftGenre] = useState("");
   const [draftMods, setDraftMods] = useState<string[]>([]);
   const [newMod, setNewMod] = useState("");
+  const [draftScreenshots, setDraftScreenshots] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const toggleSort = (key: SortKey) => {
@@ -95,8 +98,43 @@ export function RedditGames() {
     setDraftSub(game.sub_address ?? "");
     setDraftGenre(game.genre ?? "");
     setDraftMods(game.moderators ?? []);
+    setDraftScreenshots(game.screenshots ?? []);
     setNewMod("");
   };
+
+  const slugify = (s: string) =>
+    s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "game";
+
+  const onUploadScreenshots = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0 || !editing) return;
+    setUploading(true);
+    const prefix = `reddit-games/${slugify(editing.game_name)}/screenshots`;
+    const added: string[] = [];
+    for (const file of Array.from(fileList)) {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("prefix", prefix);
+        const res = await fetch("/api/upload-image", { method: "POST", body: fd });
+        const json = await res.json();
+        if (!res.ok || !json.url) {
+          toast.error(`Failed: ${file.name} — ${json.error ?? res.statusText}`);
+          continue;
+        }
+        added.push(json.url);
+      } catch (e: any) {
+        toast.error(`Failed: ${file.name} — ${e?.message ?? "Upload error"}`);
+      }
+    }
+    if (added.length) {
+      setDraftScreenshots(prev => [...prev, ...added]);
+      toast.success(`Uploaded ${added.length} screenshot${added.length > 1 ? "s" : ""}`);
+    }
+    setUploading(false);
+  };
+
+  const removeScreenshot = (url: string) =>
+    setDraftScreenshots(prev => prev.filter(s => s !== url));
 
   const closeEdit = () => {
     setEditing(null);
@@ -123,6 +161,7 @@ export function RedditGames() {
       sub_address: normalizeSubAddress(draftSub),
       genre: draftGenre.trim() || null,
       moderators: draftMods,
+      screenshots: draftScreenshots,
       last_update: new Date().toISOString(),
     };
     const { error } = await supabase.from("tracked_games").update(updates).eq("id", editing.id);
@@ -643,6 +682,45 @@ export function RedditGames() {
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="screenshots">Screenshots</Label>
+              <Input
+                id="screenshots"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                multiple
+                disabled={uploading}
+                onChange={e => {
+                  onUploadScreenshots(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              {uploading && <p className="text-xs text-muted-foreground">Uploading…</p>}
+              {draftScreenshots.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {draftScreenshots.map(url => (
+                    <div key={url} className="relative group">
+                      <a href={url} target="_blank" rel="noreferrer">
+                        <img
+                          src={url}
+                          alt="screenshot"
+                          className="w-full h-20 object-cover rounded border"
+                        />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => removeScreenshot(url)}
+                        className="absolute -top-1 -right-1 bg-background border rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition hover:text-destructive"
+                        aria-label="Remove screenshot"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
