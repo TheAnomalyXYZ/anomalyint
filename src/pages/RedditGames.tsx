@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -8,6 +9,7 @@ import { Gamepad2, ExternalLink, Search, Users, MessageSquare, Pencil, X, ArrowU
 import { supabase } from "../lib/supabase";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card";
 import { toast } from "sonner";
 import { LineChart, Line, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
@@ -255,6 +257,16 @@ export function RedditGames() {
       .map(([week, users]) => ({ week, users }));
   }, [games]);
 
+  const allScreenshots = useMemo(() => {
+    const items: { url: string; gameId: string; gameName: string }[] = [];
+    for (const g of games) {
+      for (const url of g.screenshots ?? []) {
+        items.push({ url, gameId: g.id, gameName: g.game_name });
+      }
+    }
+    return items;
+  }, [games]);
+
   const topGames = useMemo(() => {
     return games
       .map(g => ({ game: g, latest: latestMetric(g.tracked_game_weekly_metrics) }))
@@ -322,6 +334,37 @@ export function RedditGames() {
           </p>
         </div>
       </div>
+
+      {allScreenshots.length > 0 && (
+        <>
+          <style>{`
+            @keyframes screenshot-marquee {
+              from { transform: translateX(0); }
+              to { transform: translateX(-50%); }
+            }
+            .screenshot-marquee-track {
+              animation: screenshot-marquee 60s linear infinite;
+            }
+            .screenshot-marquee-wrap:hover .screenshot-marquee-track {
+              animation-play-state: paused;
+            }
+          `}</style>
+          <div className="screenshot-marquee-wrap overflow-hidden rounded-xl border bg-muted/30">
+            <div className="screenshot-marquee-track flex gap-3 py-3 w-max">
+              {[...allScreenshots, ...allScreenshots].map((s, i) => (
+                <Link
+                  key={`${s.url}-${i}`}
+                  to={`/reddit-games/${s.gameId}`}
+                  title={s.gameName}
+                  className="shrink-0 block rounded-md overflow-hidden border bg-background hover:ring-2 hover:ring-primary transition"
+                >
+                  <img src={s.url} alt={s.gameName} className="h-24 w-auto object-cover" loading="lazy" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
@@ -425,7 +468,9 @@ export function RedditGames() {
                   const positive = delta >= 0;
                   return (
                     <li key={game.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="font-medium truncate">{game.game_name}</span>
+                      <Link to={`/reddit-games/${game.id}`} className="font-medium truncate hover:text-primary hover:underline">
+                        {game.game_name}
+                      </Link>
                       <span className="flex items-center gap-2 shrink-0">
                         <span className="font-mono text-xs text-muted-foreground">{compactFmt(curr)}</span>
                         <span className={`inline-flex items-center gap-0.5 font-mono text-xs ${positive ? "text-green-600" : "text-red-600"}`}>
@@ -574,7 +619,38 @@ export function RedditGames() {
                     return (
                       <TableRow key={game.id}>
                         <TableCell>
-                          <div className="font-medium">{game.game_name}</div>
+                          {game.screenshots?.length ? (
+                            <HoverCard openDelay={150} closeDelay={50}>
+                              <HoverCardTrigger asChild>
+                                <Link
+                                  to={`/reddit-games/${game.id}`}
+                                  className="font-medium hover:text-primary hover:underline"
+                                >
+                                  {game.game_name}
+                                </Link>
+                              </HoverCardTrigger>
+                              <HoverCardContent side="right" className="w-64 p-2">
+                                <img
+                                  src={game.screenshots[0]}
+                                  alt={game.game_name}
+                                  className="w-full h-40 object-cover rounded"
+                                  loading="lazy"
+                                />
+                                {game.screenshots.length > 1 && (
+                                  <p className="text-xs text-muted-foreground pt-1 text-center">
+                                    +{game.screenshots.length - 1} more
+                                  </p>
+                                )}
+                              </HoverCardContent>
+                            </HoverCard>
+                          ) : (
+                            <Link
+                              to={`/reddit-games/${game.id}`}
+                              className="font-medium hover:text-primary hover:underline"
+                            >
+                              {game.game_name}
+                            </Link>
+                          )}
                           {game.description && (
                             <div className="text-xs text-muted-foreground line-clamp-1">{game.description}</div>
                           )}

@@ -561,7 +561,8 @@ model tracked_games {
   listings      String[]                       @default([])
   genre         String?
   moderators    String[]                       @default([])
-  screenshots   String[]                       @default([])
+  screenshots       String[]                   @default([])
+  screenshots_full  String[]                   @default([])
   created_at    DateTime                       @default(now())
   updated_at    DateTime                       @updatedAt
   weekly_metrics tracked_game_weekly_metrics[]
