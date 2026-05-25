@@ -185,7 +185,7 @@ export function TrackedContent() {
             Monitor your posts and engage with AI-suggested responses
           </p>
         </div>
-        <Button className="gradient-primary text-white border-0">
+        <Button>
           <RefreshCw className="h-4 w-4 mr-2" />
           Sync Posts
         </Button>

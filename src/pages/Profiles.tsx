@@ -231,7 +231,7 @@ export function Profiles() {
             <Plus className="h-4 w-4 mr-2" />
             New Profile
           </Button>
-          <Button onClick={handleSave} className="gradient-primary text-white border-0">
+          <Button onClick={handleSave}>
             <Save className="h-4 w-4 mr-2" />
             Save Profile
           </Button>

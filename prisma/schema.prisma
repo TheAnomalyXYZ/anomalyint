@@ -550,3 +550,33 @@ model clerk_documents {
   @@index([uploaded_at])
   @@index([status])
 }
+
+model tracked_games {
+  id            String                         @id @default(uuid()) @db.Uuid
+  game_name     String                         @unique
+  description   String?
+  sub_address   String?
+  created_date  DateTime?                      @db.Date
+  last_update   DateTime?
+  listings      String[]                       @default([])
+  genre         String?
+  moderators    String[]                       @default([])
+  created_at    DateTime                       @default(now())
+  updated_at    DateTime                       @updatedAt
+  weekly_metrics tracked_game_weekly_metrics[]
+
+  @@index([game_name])
+}
+
+model tracked_game_weekly_metrics {
+  id              String        @id @default(uuid()) @db.Uuid
+  tracked_game_id String        @db.Uuid
+  week_of         DateTime      @db.Date
+  users           Int?
+  contributions   Int?
+  recorded_at     DateTime      @default(now())
+  tracked_games   tracked_games @relation(fields: [tracked_game_id], references: [id], onDelete: Cascade)
+
+  @@unique([tracked_game_id, week_of])
+  @@index([week_of])
+}

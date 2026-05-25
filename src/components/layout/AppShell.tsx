@@ -27,6 +27,7 @@ import {
   MessageCircle,
   Database,
   FileText,
+  Gamepad2,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -56,6 +57,7 @@ const navigation = [
       { id: "agents", label: "AI Agents", icon: Bot, path: "/agents" },
       { id: "knowledge-corpus", label: "Knowledge Corpus", icon: Database, path: "/knowledge-corpus" },
       { id: "clerk", label: "Clerk", icon: FileText, path: "/clerk" },
+      { id: "reddit-games", label: "Reddit Games", icon: Gamepad2, path: "/reddit-games" },
     ],
   },
   {
