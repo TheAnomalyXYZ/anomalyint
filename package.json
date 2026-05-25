@@ -69,6 +69,7 @@
             "@vercel/node": "^5.5.6",
             "@vitejs/plugin-react-swc": "^3.10.2",
             "autoprefixer": "^10.4.23",
+            "concurrently": "^9.2.1",
             "postcss": "^8.5.6",
             "prisma": "^6.2.0",
             "tailwindcss": "^4.1.18",
@@ -76,8 +77,9 @@
             "vite": "6.3.5"
       },
       "scripts": {
-            "dev": "vite",
-            "dev:api": "vercel dev --listen 3002",
+            "dev": "npx vercel dev --listen 3000 --yes",
+            "dev:web": "vite",
+            "dev:api": "npx vercel dev --listen 3002 --yes",
             "build": "vite build",
             "db:init": "tsx src/scripts/init-db.ts",
             "db:migrate": "psql $DATABASE_URL -f database/schema.sql",

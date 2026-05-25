@@ -4,8 +4,11 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { Gamepad2, ExternalLink, Search, Users, MessageSquare } from "lucide-react";
+import { Gamepad2, ExternalLink, Search, Users, MessageSquare, Pencil, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { Label } from "../components/ui/label";
+import { toast } from "sonner";
 
 interface WeeklyMetric {
   week_of: string;
@@ -34,6 +37,18 @@ const numberFmt = (n: number | null | undefined) =>
 const dateFmt = (iso: string | null) =>
   !iso ? "—" : new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
 
+function normalizeSubAddress(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/+$/, "");
+  const slug = trimmed
+    .replace(/^https?:\/\/(www\.)?reddit\.com\//i, "")
+    .replace(/^\/+/, "")
+    .replace(/^r\//i, "")
+    .replace(/\/+$/, "");
+  return slug ? `https://www.reddit.com/r/${slug}` : null;
+}
+
 function latestMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
   if (!metrics?.length) return null;
   return [...metrics].sort((a, b) => (a.week_of < b.week_of ? 1 : -1))[0];
@@ -44,6 +59,59 @@ export function RedditGames() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
+  const [editing, setEditing] = useState<TrackedGame | null>(null);
+  const [draftSub, setDraftSub] = useState("");
+  const [draftGenre, setDraftGenre] = useState("");
+  const [draftMods, setDraftMods] = useState<string[]>([]);
+  const [newMod, setNewMod] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (game: TrackedGame) => {
+    setEditing(game);
+    setDraftSub(game.sub_address ?? "");
+    setDraftGenre(game.genre ?? "");
+    setDraftMods(game.moderators ?? []);
+    setNewMod("");
+  };
+
+  const closeEdit = () => {
+    setEditing(null);
+    setNewMod("");
+  };
+
+  const addMod = () => {
+    const m = newMod.trim();
+    if (!m) return;
+    if (draftMods.includes(m)) {
+      toast.error("Moderator already added");
+      return;
+    }
+    setDraftMods([...draftMods, m]);
+    setNewMod("");
+  };
+
+  const removeMod = (m: string) => setDraftMods(draftMods.filter(x => x !== m));
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSaving(true);
+    const updates = {
+      sub_address: normalizeSubAddress(draftSub),
+      genre: draftGenre.trim() || null,
+      moderators: draftMods,
+      last_update: new Date().toISOString(),
+    };
+    const { error } = await supabase.from("tracked_games").update(updates).eq("id", editing.id);
+    setSaving(false);
+    if (error) {
+      console.error("Failed to update game:", error);
+      toast.error("Failed to save changes");
+      return;
+    }
+    setGames(games.map(g => (g.id === editing.id ? { ...g, ...updates } : g)));
+    toast.success(`Updated ${editing.game_name}`);
+    closeEdit();
+  };
 
   useEffect(() => {
     (async () => {
@@ -164,6 +232,7 @@ export function RedditGames() {
                     <TableHead>Created</TableHead>
                     <TableHead>Last Update</TableHead>
                     <TableHead className="text-right">Mods</TableHead>
+                    <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -211,6 +280,11 @@ export function RedditGames() {
                         <TableCell className="text-right text-sm" title={game.moderators?.join(", ")}>
                           {game.moderators?.length ?? 0}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(game)} aria-label={`Edit ${game.game_name}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -220,6 +294,72 @@ export function RedditGames() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editing} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit {editing?.game_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="sub-address">Subreddit URL</Label>
+              <Input
+                id="sub-address"
+                placeholder="https://www.reddit.com/r/example"
+                value={draftSub}
+                onChange={e => setDraftSub(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="genre">Genre</Label>
+              <Input
+                id="genre"
+                placeholder="e.g. Puzzle, Strategy"
+                value={draftGenre}
+                onChange={e => setDraftGenre(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Moderators</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="u/username"
+                  value={newMod}
+                  onChange={e => setNewMod(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addMod();
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" onClick={addMod}>Add</Button>
+              </div>
+              {draftMods.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {draftMods.map(m => (
+                    <Badge key={m} variant="secondary" className="gap-1">
+                      {m}
+                      <button
+                        type="button"
+                        onClick={() => removeMod(m)}
+                        className="ml-1 hover:text-destructive"
+                        aria-label={`Remove ${m}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEdit} disabled={saving}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

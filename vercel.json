@@ -2,6 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "framework": "vite",
+  "devCommand": "npm run dev:web",
   "functions": {
     "api/**/*.ts": {
       "memory": 1024,
