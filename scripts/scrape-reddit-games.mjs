@@ -24,6 +24,12 @@ const abSafe = (args, opts = {}) => {
   try { return ab(args, opts); } catch (e) { return `[ab error: ${e.message.split("\n")[0]}]`; }
 };
 
+// Wait `baseMs` plus a random 0-2000ms jitter to avoid throttling patterns.
+const jitterWait = (baseMs = 0) => {
+  const total = baseMs + Math.floor(Math.random() * 2000);
+  ab(`wait ${total}`);
+};
+
 const extractGames = (snapshot) => {
   const games = [];
   const re = /button "Play (.+?)"\s*\[ref=/g;
@@ -52,8 +58,8 @@ const run = async () => {
 
   console.log("Waiting for launchpad to render...");
   try { ab(`wait --text "Games Launchpad" --timeout 30000`); }
-  catch { ab(`wait 8000`); }
-  ab(`wait 1500`);
+  catch { jitterWait(8000); }
+  jitterWait(1500);
 
   console.log("Snapshotting Popular tab...");
   let snap = ab(`snapshot -i -c`);
@@ -64,7 +70,7 @@ const run = async () => {
   if (newRef) {
     console.log(`Clicking ${newRef} (New)...`);
     ab(`click ${newRef}`);
-    ab(`wait 2000`);
+    jitterWait(2000);
     snap = ab(`snapshot -i -c`);
     neu = extractGames(snap);
   } else {
