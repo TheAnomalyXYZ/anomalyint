@@ -249,12 +249,33 @@ export function RedditGames() {
     const popular = games.filter(g => g.listings?.includes("popular")).length;
     const fresh = games.filter(g => g.listings?.includes("new")).length;
     const featured = games.filter(g => g.listings?.includes("featured")).length;
-    let totalUsers = 0;
-    for (const g of games) {
-      const latest = latestMetric(g.tracked_game_weekly_metrics);
-      if (latest?.users) totalUsers += latest.users;
-    }
-    return { popular, fresh, featured, totalUsers };
+
+    // Distinct measurement dates across all games (desc).
+    const allDates = new Set<string>();
+    for (const g of games) for (const m of g.tracked_game_weekly_metrics ?? []) allDates.add(m.measured_on);
+    const sortedDates = [...allDates].sort((a, b) => (a < b ? 1 : -1));
+    const latestDate = sortedDates[0] ?? null;
+    const prevDate = sortedDates[1] ?? null;
+
+    // Snapshot at date X = sum of each game's most recent reading whose measured_on <= X.
+    const snapshotAt = (date: string | null) => {
+      if (!date) return 0;
+      let sum = 0;
+      for (const g of games) {
+        const eligible = (g.tracked_game_weekly_metrics ?? [])
+          .filter(m => m.users != null && m.measured_on <= date)
+          .sort((a, b) => (a.measured_on < b.measured_on ? 1 : -1));
+        if (eligible[0]?.users) sum += eligible[0].users;
+      }
+      return sum;
+    };
+
+    const totalUsers = snapshotAt(latestDate);
+    const prevTotal = snapshotAt(prevDate);
+    const dailyDelta = prevDate ? totalUsers - prevTotal : null;
+    const dailyPct = prevDate && prevTotal > 0 ? (dailyDelta! / prevTotal) * 100 : null;
+
+    return { popular, fresh, featured, totalUsers, dailyDelta, dailyPct, latestDate, prevDate };
   }, [games]);
 
   const genreCounts = useMemo(() => {
@@ -455,6 +476,22 @@ export function RedditGames() {
           <CardHeader className="pb-2">
             <CardDescription>Total Weekly Users</CardDescription>
             <CardTitle className="text-3xl">{numberFmt(stats.totalUsers)}</CardTitle>
+            {stats.dailyDelta != null && (
+              <div
+                className={`inline-flex items-center gap-1 text-xs font-medium pt-1 ${
+                  stats.dailyDelta >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+                title={`Snapshot total on ${stats.latestDate} vs ${stats.prevDate} (each game contributes its most recent reading on or before each date)`}
+              >
+                {stats.dailyDelta >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                {stats.dailyDelta >= 0 ? "+" : ""}
+                {compactFmt(stats.dailyDelta)}
+                {stats.dailyPct != null && (
+                  <span>({stats.dailyPct >= 0 ? "+" : ""}{stats.dailyPct.toFixed(1)}%)</span>
+                )}
+                <span className="text-muted-foreground font-normal ml-1">vs prev day</span>
+              </div>
+            )}
           </CardHeader>
         </Card>
         <Card>

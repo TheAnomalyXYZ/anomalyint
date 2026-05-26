@@ -148,6 +148,45 @@ export function RedditGameDetail() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Description</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+              {game.description || "No description yet."}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Moderators</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {game.moderators?.length ? (
+              <ul className="flex flex-wrap gap-2">
+                {game.moderators.map(m => (
+                  <li key={m}>
+                    <a
+                      href={`https://www.reddit.com/user/${m.replace(/^u\//, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm bg-muted px-3 py-1 rounded-full hover:bg-muted/70"
+                    >
+                      {m}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">None listed.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Screenshots</CardTitle>
@@ -207,45 +246,6 @@ export function RedditGameDetail() {
           )}
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Description</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-              {game.description || "No description yet."}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Moderators</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {game.moderators?.length ? (
-              <ul className="flex flex-wrap gap-2">
-                {game.moderators.map(m => (
-                  <li key={m}>
-                    <a
-                      href={`https://www.reddit.com/user/${m.replace(/^u\//, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm bg-muted px-3 py-1 rounded-full hover:bg-muted/70"
-                    >
-                      {m}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">None listed.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
       {lightbox && (
         <div
