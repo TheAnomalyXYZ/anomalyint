@@ -8,7 +8,7 @@ import { supabase } from "../lib/supabase";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 
 interface WeeklyMetric {
-  week_of: string;
+  measured_on: string;
   users: number | null;
   contributions: number | null;
 }
@@ -49,7 +49,7 @@ export function RedditGameDetail() {
       setLoading(true);
       const { data, error } = await supabase
         .from("tracked_games")
-        .select("*, tracked_game_weekly_metrics(week_of, users, contributions)")
+        .select("*, tracked_game_weekly_metrics(measured_on, users, contributions)")
         .eq("id", id)
         .single();
       if (error) {
@@ -65,8 +65,8 @@ export function RedditGameDetail() {
   const weeklySeries = useMemo(() => {
     if (!game) return [];
     return [...(game.tracked_game_weekly_metrics ?? [])]
-      .sort((a, b) => (a.week_of < b.week_of ? -1 : 1))
-      .map(m => ({ week: m.week_of, users: m.users ?? 0, contributions: m.contributions ?? 0 }));
+      .sort((a, b) => (a.measured_on < b.measured_on ? -1 : 1))
+      .map(m => ({ date: m.measured_on, users: m.users ?? 0, contributions: m.contributions ?? 0 }));
   }, [game]);
 
   const latest = weeklySeries[weeklySeries.length - 1];
@@ -101,7 +101,13 @@ export function RedditGameDetail() {
           </h1>
           <div className="flex flex-wrap gap-2 pt-1">
             {game.listings?.map(l => (
-              <Badge key={l} variant={l === "popular" ? "default" : "secondary"}>{l}</Badge>
+              <Badge
+                key={l}
+                variant={l === "popular" ? "default" : "secondary"}
+                className={l === "featured" ? "bg-amber-500 hover:bg-amber-500 text-white border-transparent" : ""}
+              >
+                {l}
+              </Badge>
             ))}
             {game.genre && <Badge variant="outline">{game.genre}</Badge>}
           </div>
@@ -178,8 +184,8 @@ export function RedditGameDetail() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Weekly Metrics</CardTitle>
-          <CardDescription>Users and contributions over time.</CardDescription>
+          <CardTitle className="text-base">Activity Over Time</CardTitle>
+          <CardDescription>Rolling 7-day users and contributions per measurement.</CardDescription>
         </CardHeader>
         <CardContent>
           {weeklySeries.length === 0 ? (
@@ -190,7 +196,7 @@ export function RedditGameDetail() {
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={weeklySeries} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="week" className="text-xs" />
+                <XAxis dataKey="date" className="text-xs" />
                 <YAxis className="text-xs" tickFormatter={(v: number) => compactFmt(v)} />
                 <Tooltip formatter={(v: number) => numberFmt(v)} />
                 <Legend />

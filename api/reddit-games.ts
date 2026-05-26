@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data, error } = await supabase
     .from('tracked_games')
-    .select('*, tracked_game_weekly_metrics(week_of, users, contributions)')
+    .select('*, tracked_game_weekly_metrics(measured_on, users, contributions)')
     .order('game_name', { ascending: true });
 
   if (error) {

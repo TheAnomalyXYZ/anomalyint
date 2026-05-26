@@ -573,12 +573,12 @@ model tracked_games {
 model tracked_game_weekly_metrics {
   id              String        @id @default(uuid()) @db.Uuid
   tracked_game_id String        @db.Uuid
-  week_of         DateTime      @db.Date
+  measured_on     DateTime      @db.Date
   users           Int?
   contributions   Int?
   recorded_at     DateTime      @default(now())
   tracked_games   tracked_games @relation(fields: [tracked_game_id], references: [id], onDelete: Cascade)
 
-  @@unique([tracked_game_id, week_of])
-  @@index([week_of])
+  @@unique([tracked_game_id, measured_on])
+  @@index([measured_on])
 }

@@ -82,10 +82,10 @@ SET
   updated_at = NOW()
 WHERE game_name = 'Sword & Supper';
 
--- Weekly snapshot for Sword & Supper (week_of = scrape Monday).
-INSERT INTO tracked_game_weekly_metrics (tracked_game_id, week_of, users, contributions)
+-- Rolling 7-day reading for Sword & Supper as of scrape date.
+INSERT INTO tracked_game_weekly_metrics (tracked_game_id, measured_on, users, contributions)
 SELECT id, DATE '2026-05-25', 76000, 39000
 FROM tracked_games WHERE game_name = 'Sword & Supper'
-ON CONFLICT (tracked_game_id, week_of) DO UPDATE
+ON CONFLICT (tracked_game_id, measured_on) DO UPDATE
   SET users = EXCLUDED.users,
       contributions = EXCLUDED.contributions;

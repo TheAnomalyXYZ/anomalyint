@@ -10,11 +10,12 @@ import { supabase } from "../lib/supabase";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card";
+import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { LineChart, Line, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 interface WeeklyMetric {
-  week_of: string;
+  measured_on: string;
   users: number | null;
   contributions: number | null;
 }
@@ -36,7 +37,7 @@ interface TrackedGame {
 
 type GenreSortKey = "genre" | "curr" | "prev" | "delta" | "pct";
 
-type ListingFilter = "all" | "popular" | "new";
+type ListingFilter = "all" | "popular" | "new" | "featured";
 type SortKey = "name" | "users" | "contributions";
 type SortDir = "asc" | "desc";
 
@@ -70,7 +71,22 @@ function normalizeSubAddress(input: string): string | null {
 
 function latestMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
   if (!metrics?.length) return null;
-  return [...metrics].sort((a, b) => (a.week_of < b.week_of ? 1 : -1))[0];
+  return [...metrics].sort((a, b) => (a.measured_on < b.measured_on ? 1 : -1))[0];
+}
+
+// For week-over-week, find the reading whose date is at least 6 days before the latest.
+// Falls back to the previous reading if no older one exists.
+function previousWeekMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
+  if (!metrics || metrics.length < 2) return null;
+  const sorted = [...metrics].sort((a, b) => (a.measured_on < b.measured_on ? 1 : -1));
+  const latest = sorted[0];
+  const latestDate = new Date(latest.measured_on);
+  const cutoff = new Date(latestDate);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 6);
+  for (let i = 1; i < sorted.length; i++) {
+    if (new Date(sorted[i].measured_on) <= cutoff) return sorted[i];
+  }
+  return null;
 }
 
 export function RedditGames() {
@@ -86,6 +102,7 @@ export function RedditGames() {
   const [editing, setEditing] = useState<TrackedGame | null>(null);
   const [draftSub, setDraftSub] = useState("");
   const [draftGenre, setDraftGenre] = useState("");
+  const [draftDescription, setDraftDescription] = useState("");
   const [draftMods, setDraftMods] = useState<string[]>([]);
   const [newMod, setNewMod] = useState("");
   const [draftScreenshots, setDraftScreenshots] = useState<string[]>([]);
@@ -105,6 +122,7 @@ export function RedditGames() {
     setEditing(game);
     setDraftSub(game.sub_address ?? "");
     setDraftGenre(game.genre ?? "");
+    setDraftDescription(game.description ?? "");
     setDraftMods(game.moderators ?? []);
     setDraftScreenshots(game.screenshots ?? []);
     setNewMod("");
@@ -168,6 +186,7 @@ export function RedditGames() {
     const updates = {
       sub_address: normalizeSubAddress(draftSub),
       genre: draftGenre.trim() || null,
+      description: draftDescription.trim() || null,
       moderators: draftMods,
       screenshots: draftScreenshots,
       last_update: new Date().toISOString(),
@@ -189,7 +208,7 @@ export function RedditGames() {
       setLoading(true);
       const { data, error } = await supabase
         .from("tracked_games")
-        .select("*, tracked_game_weekly_metrics(week_of, users, contributions)")
+        .select("*, tracked_game_weekly_metrics(measured_on, users, contributions)")
         .order("game_name", { ascending: true });
       if (error) {
         console.error("Failed to load tracked games:", error);
@@ -229,12 +248,13 @@ export function RedditGames() {
   const stats = useMemo(() => {
     const popular = games.filter(g => g.listings?.includes("popular")).length;
     const fresh = games.filter(g => g.listings?.includes("new")).length;
+    const featured = games.filter(g => g.listings?.includes("featured")).length;
     let totalUsers = 0;
     for (const g of games) {
       const latest = latestMetric(g.tracked_game_weekly_metrics);
       if (latest?.users) totalUsers += latest.users;
     }
-    return { popular, fresh, totalUsers };
+    return { popular, fresh, featured, totalUsers };
   }, [games]);
 
   const genreCounts = useMemo(() => {
@@ -250,17 +270,17 @@ export function RedditGames() {
   }, [games]);
 
   const weeklyAdoption = useMemo(() => {
-    // Aggregate users across all games per week_of
-    const byWeek = new Map<string, number>();
+    // Aggregate users across all games per measurement date.
+    const byDate = new Map<string, number>();
     for (const game of games) {
       for (const m of game.tracked_game_weekly_metrics ?? []) {
         if (m.users == null) continue;
-        byWeek.set(m.week_of, (byWeek.get(m.week_of) ?? 0) + m.users);
+        byDate.set(m.measured_on, (byDate.get(m.measured_on) ?? 0) + m.users);
       }
     }
-    return [...byWeek.entries()]
+    return [...byDate.entries()]
       .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      .map(([week, users]) => ({ week, users }));
+      .map(([date, users]) => ({ date, users }));
   }, [games]);
 
   const firstScreenshotByGameId = useMemo(() => {
@@ -308,14 +328,13 @@ export function RedditGames() {
   }, [games]);
 
   const growth = useMemo(() => {
-    // For each game, compare latest vs previous week. Need at least 2 snapshots.
+    // For each game, compare latest reading vs the reading from ~7 days earlier.
     const perGame = games
       .map(g => {
-        const sorted = [...(g.tracked_game_weekly_metrics ?? [])]
-          .filter(m => m.users != null)
-          .sort((a, b) => (a.week_of < b.week_of ? 1 : -1));
-        if (sorted.length < 2) return null;
-        const [curr, prev] = sorted;
+        const readings = (g.tracked_game_weekly_metrics ?? []).filter(m => m.users != null);
+        const curr = latestMetric(readings);
+        const prev = previousWeekMetric(readings);
+        if (!curr || !prev) return null;
         const delta = curr.users! - prev.users!;
         const pct = prev.users! === 0 ? null : (delta / prev.users!) * 100;
         return { game: g, curr: curr.users!, prev: prev.users!, delta, pct };
@@ -425,7 +444,7 @@ export function RedditGames() {
         </>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Games</CardDescription>
@@ -436,6 +455,12 @@ export function RedditGames() {
           <CardHeader className="pb-2">
             <CardDescription>Total Weekly Users</CardDescription>
             <CardTitle className="text-3xl">{numberFmt(stats.totalUsers)}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Featured</CardDescription>
+            <CardTitle className="text-3xl">{stats.featured}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
@@ -456,9 +481,9 @@ export function RedditGames() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Game Adoption Weekly
+              <TrendingUp className="h-4 w-4" /> Game Adoption
             </CardTitle>
-            <CardDescription>Total weekly users across all tracked games.</CardDescription>
+            <CardDescription>Total rolling 7-day active users across all tracked games, per measurement.</CardDescription>
           </CardHeader>
           <CardContent>
             {weeklyAdoption.length === 0 ? (
@@ -469,7 +494,7 @@ export function RedditGames() {
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={weeklyAdoption} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="week" className="text-xs" />
+                  <XAxis dataKey="date" className="text-xs" />
                   <YAxis className="text-xs" tickFormatter={(v: number) => compactFmt(v)} />
                   <Tooltip formatter={(v: number) => numberFmt(v)} />
                   <Line type="monotone" dataKey="users" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} />
@@ -716,14 +741,14 @@ export function RedditGames() {
               />
             </div>
             <div className="flex gap-2">
-              {(["all", "popular", "new"] as ListingFilter[]).map(f => (
+              {(["all", "featured", "popular", "new"] as ListingFilter[]).map(f => (
                 <Button
                   key={f}
                   size="sm"
                   variant={listingFilter === f ? "default" : "outline"}
                   onClick={() => setListingFilter(f)}
                 >
-                  {f === "all" ? "All" : f === "popular" ? "Popular" : "New"}
+                  {f === "all" ? "All" : f === "popular" ? "Popular" : f === "new" ? "New" : "Featured"}
                 </Button>
               ))}
             </div>
@@ -809,7 +834,11 @@ export function RedditGames() {
                           <div className="flex flex-wrap gap-1">
                             {game.listings?.length
                               ? game.listings.map(l => (
-                                  <Badge key={l} variant={l === "popular" ? "default" : "secondary"}>
+                                  <Badge
+                                    key={l}
+                                    variant={l === "popular" ? "default" : "secondary"}
+                                    className={l === "featured" ? "bg-amber-500 hover:bg-amber-500 text-white border-transparent" : ""}
+                                  >
                                     {l}
                                   </Badge>
                                 ))
@@ -867,6 +896,16 @@ export function RedditGames() {
                 placeholder="https://www.reddit.com/r/example"
                 value={draftSub}
                 onChange={e => setDraftSub(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="What is this game about?"
+                rows={3}
+                value={draftDescription}
+                onChange={e => setDraftDescription(e.target.value)}
               />
             </div>
             <div className="space-y-2">

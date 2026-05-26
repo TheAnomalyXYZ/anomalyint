@@ -20,12 +20,9 @@ function extractNumber(v: any): number | null {
   return null;
 }
 
-function mondayOf(dateStr?: string): string {
+function asDate(dateStr?: string): string {
   const d = dateStr ? new Date(dateStr) : new Date();
-  if (Number.isNaN(d.getTime())) throw new Error('Invalid weekOf date');
-  const day = d.getUTCDay(); // 0=Sun..6=Sat
-  const offset = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + offset);
+  if (Number.isNaN(d.getTime())) throw new Error('Invalid measuredOn date');
   return d.toISOString().slice(0, 10);
 }
 
@@ -49,9 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Provide "games" array (or a top-level array) in body' });
   }
 
-  let weekOf: string;
+  let measuredOn: string;
   try {
-    weekOf = mondayOf(body.weekOf);
+    // Prefer explicit measuredOn; fall back to scrapedAt (from scraper JSON); else today.
+    measuredOn = asDate(body.measuredOn ?? body.weekOf ?? body.scrapedAt);
   } catch (e: any) {
     return res.status(400).json({ error: e.message });
   }
@@ -73,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     (matches ?? []).forEach((r: any) => nameToId.set(r.game_name, r.id));
   }
 
-  const rows: { tracked_game_id: string; week_of: string; users: number | null; contributions: number | null }[] = [];
+  const rows: { tracked_game_id: string; measured_on: string; users: number | null; contributions: number | null }[] = [];
   const skipped: { input: IncomingGame; reason: string }[] = [];
 
   for (const g of rawGames) {
@@ -88,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       skipped.push({ input: g, reason: 'No users or contributions value' });
       continue;
     }
-    rows.push({ tracked_game_id: trackedId, week_of: weekOf, users, contributions });
+    rows.push({ tracked_game_id: trackedId, measured_on: measuredOn, users, contributions });
   }
 
   if (rows.length === 0) {
@@ -97,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data, error } = await supabase
     .from('tracked_game_weekly_metrics')
-    .upsert(rows, { onConflict: 'tracked_game_id,week_of' })
+    .upsert(rows, { onConflict: 'tracked_game_id,measured_on' })
     .select();
 
   if (error) {
@@ -105,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(200).json({
-    weekOf,
+    measuredOn,
     upserted: data?.length ?? 0,
     skipped,
   });
