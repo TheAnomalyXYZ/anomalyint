@@ -164,7 +164,7 @@ export function RedditGameDetail() {
                     className="block overflow-hidden rounded border hover:ring-2 hover:ring-primary transition focus:outline-none focus:ring-2 focus:ring-primary"
                     title="Click to view full subreddit page"
                   >
-                    <img src={cropUrl} alt="screenshot" className="w-full h-32 object-cover" />
+                    <img src={cropUrl} alt="screenshot" className="w-full h-56 object-cover" />
                   </button>
                 );
               })}

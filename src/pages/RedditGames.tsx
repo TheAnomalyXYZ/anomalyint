@@ -487,21 +487,20 @@ export function RedditGames() {
             <CardDescription>New trending games.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3 [column-fill:_balance]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {newHotGames.map(g => (
                 <Link
                   key={g.gameId}
                   to={`/reddit-games/${g.gameId}`}
                   title={g.gameName}
                   style={{ rotate: `${g.tilt}deg` }}
-                  className="relative mb-3 inline-block w-full overflow-hidden rounded-md border bg-background break-inside-avoid hover:ring-2 hover:ring-primary transition"
+                  className="relative block overflow-hidden rounded-md border bg-background hover:ring-2 hover:ring-primary transition"
                 >
                   <img
                     src={g.url}
                     alt={g.gameName}
                     loading="lazy"
-                    style={{ height: g.height }}
-                    className="w-full object-cover"
+                    className="w-full h-56 object-cover"
                   />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent text-white px-2 py-1.5">
                     <div className="text-xs font-medium line-clamp-1">{g.gameName}</div>
