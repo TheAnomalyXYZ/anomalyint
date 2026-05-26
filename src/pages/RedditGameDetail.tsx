@@ -37,7 +37,11 @@ const compactFmt = (n: number) =>
 const dateFmt = (iso: string | null) =>
   !iso ? "—" : new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
 
-export function RedditGameDetail() {
+interface RedditGameDetailProps {
+  basePath?: string;
+}
+
+export function RedditGameDetail({ basePath = "/reddit-games" }: RedditGameDetailProps = {}) {
   const { id } = useParams<{ id: string }>();
   const [game, setGame] = useState<TrackedGame | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +82,7 @@ export function RedditGameDetail() {
   if (!game) {
     return (
       <div className="p-6 space-y-4">
-        <Link to="/reddit-games" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <Link to={basePath} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
           <ArrowLeft className="h-4 w-4" /> Back
         </Link>
         <p>Game not found.</p>
@@ -91,7 +95,7 @@ export function RedditGameDetail() {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <Link
-            to="/reddit-games"
+            to={basePath}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> All Reddit games

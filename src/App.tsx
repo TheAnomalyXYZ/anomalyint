@@ -25,6 +25,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/oauth/callback" element={<OAuthCallback />} />
+        <Route path="/reddit" element={<RedditGames basePath="/reddit" />} />
+        <Route path="/reddit/:id" element={<RedditGameDetail basePath="/reddit" />} />
         <Route path="*" element={
           <AppShell>
             <Routes>

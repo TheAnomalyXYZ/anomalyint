@@ -89,7 +89,11 @@ function previousWeekMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
   return null;
 }
 
-export function RedditGames() {
+interface RedditGamesProps {
+  basePath?: string;
+}
+
+export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {}) {
   const navigate = useNavigate();
   const [games, setGames] = useState<TrackedGame[]>([]);
   const [genreSortKey, setGenreSortKey] = useState<GenreSortKey>("delta");
@@ -333,9 +337,8 @@ export function RedditGames() {
   const allScreenshots = useMemo(() => {
     const items: { url: string; gameId: string; gameName: string }[] = [];
     for (const g of games) {
-      for (const url of g.screenshots ?? []) {
-        items.push({ url, gameId: g.id, gameName: g.game_name });
-      }
+      const first = g.screenshots?.[0];
+      if (first) items.push({ url: first, gameId: g.id, gameName: g.game_name });
     }
     return items;
   }, [games]);
@@ -453,7 +456,7 @@ export function RedditGames() {
               {[...allScreenshots, ...allScreenshots].map((s, i) => (
                 <Link
                   key={`${s.url}-${i}`}
-                  to={`/reddit-games/${s.gameId}`}
+                  to={`${basePath}/${s.gameId}`}
                   title={s.gameName}
                   className="shrink-0 block rounded-md overflow-hidden border bg-background hover:ring-2 hover:ring-primary transition"
                 >
@@ -553,7 +556,7 @@ export function RedditGames() {
               {newHotGames.map(g => (
                 <Link
                   key={g.gameId}
-                  to={`/reddit-games/${g.gameId}`}
+                  to={`${basePath}/${g.gameId}`}
                   title={g.gameName}
                   style={{ rotate: `${g.tilt}deg` }}
                   className="relative block overflow-hidden rounded-md border bg-background hover:ring-2 hover:ring-primary transition"
@@ -625,7 +628,7 @@ export function RedditGames() {
                     fill="#6366f1"
                     radius={[0, 4, 4, 0]}
                     style={{ cursor: "pointer" }}
-                    onClick={(d: any) => d?.gameId && navigate(`/reddit-games/${d.gameId}`)}
+                    onClick={(d: any) => d?.gameId && navigate(`${basePath}/${d.gameId}`)}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -649,7 +652,7 @@ export function RedditGames() {
                   const positive = delta >= 0;
                   const shot = firstScreenshotByGameId.get(game.id);
                   const NameLink = (
-                    <Link to={`/reddit-games/${game.id}`} className="font-medium truncate hover:text-primary hover:underline">
+                    <Link to={`${basePath}/${game.id}`} className="font-medium truncate hover:text-primary hover:underline">
                       {game.game_name}
                     </Link>
                   );
@@ -835,7 +838,7 @@ export function RedditGames() {
                             <HoverCard openDelay={150} closeDelay={50}>
                               <HoverCardTrigger asChild>
                                 <Link
-                                  to={`/reddit-games/${game.id}`}
+                                  to={`${basePath}/${game.id}`}
                                   className="font-medium hover:text-primary hover:underline"
                                 >
                                   {game.game_name}
@@ -857,14 +860,16 @@ export function RedditGames() {
                             </HoverCard>
                           ) : (
                             <Link
-                              to={`/reddit-games/${game.id}`}
+                              to={`${basePath}/${game.id}`}
                               className="font-medium hover:text-primary hover:underline"
                             >
                               {game.game_name}
                             </Link>
                           )}
                           {game.description && (
-                            <div className="text-xs text-muted-foreground line-clamp-1">{game.description}</div>
+                            <div className="text-xs text-muted-foreground truncate max-w-[260px]" title={game.description}>
+                              {game.description}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell>
