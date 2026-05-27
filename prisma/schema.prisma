@@ -560,6 +560,7 @@ model tracked_games {
   last_update   DateTime?
   listings      String[]                       @default([])
   genre         String?
+  genres        String[]                       @default([])
   moderators    String[]                       @default([])
   screenshots       String[]                   @default([])
   screenshots_full  String[]                   @default([])

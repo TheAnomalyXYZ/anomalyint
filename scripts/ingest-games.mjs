@@ -96,7 +96,7 @@ for (const g of games) {
   if (id) {
     const { data: row } = await supabase
       .from('tracked_games')
-      .select('description, created_date, sub_address, genre')
+      .select('description, created_date, sub_address, genre, genres')
       .eq('id', id).maybeSingle();
     existing = row;
   }
@@ -117,6 +117,7 @@ for (const g of games) {
       game_name: g.game_name,
       sub_address: g.sub_address ?? null,
       genre: g.genre ?? null,
+      genres: Array.isArray(g.genres) ? g.genres : (g.genre ? [g.genre] : []),
       description: g.description ?? null,
       created_date: g.createdIso ? g.createdIso.slice(0, 10) : null,
       listings: Array.isArray(g.listings) ? g.listings : [],
@@ -148,6 +149,13 @@ for (const g of games) {
   consider('created_date', g.createdIso ? g.createdIso.slice(0, 10) : null);
   consider('sub_address', g.sub_address);
   consider('genre', g.genre);
+
+  // genres[] — prefer a scraped array, else seed from the single genre. Fill-only:
+  // only set when the row has no genres yet (unless --overwrite).
+  const scrapedGenres = Array.isArray(g.genres) ? g.genres : (g.genre ? [g.genre] : []);
+  if (scrapedGenres.length && (overwrite || !(existing.genres?.length))) {
+    patch.genres = scrapedGenres;
+  }
 
   if (Object.keys(patch).length) {
     patch.last_update = new Date().toISOString();

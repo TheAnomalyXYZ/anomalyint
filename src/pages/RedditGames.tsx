@@ -29,11 +29,18 @@ interface TrackedGame {
   last_update: string | null;
   listings: string[];
   genre: string | null;
+  genres: string[];
   moderators: string[];
   screenshots: string[];
   screenshots_full: string[];
   tracked_game_weekly_metrics: WeeklyMetric[];
 }
+
+// A game's effective genre list (new array, falling back to legacy single field).
+const gameGenres = (g: { genres?: string[]; genre?: string | null }): string[] => {
+  if (g.genres?.length) return g.genres;
+  return g.genre ? [g.genre] : [];
+};
 
 type GenreSortKey = "genre" | "curr" | "prev" | "delta" | "pct";
 
@@ -97,8 +104,8 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [editing, setEditing] = useState<TrackedGame | null>(null);
   const [draftSub, setDraftSub] = useState("");
-  const [draftGenre, setDraftGenre] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
+  const [draftGenres, setDraftGenres] = useState<string[]>([]);
   const [draftMods, setDraftMods] = useState<string[]>([]);
   const [newMod, setNewMod] = useState("");
   const [draftScreenshots, setDraftScreenshots] = useState<string[]>([]);
@@ -117,7 +124,7 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
   const openEdit = (game: TrackedGame) => {
     setEditing(game);
     setDraftSub(game.sub_address ?? "");
-    setDraftGenre(game.genre ?? "");
+    setDraftGenres(gameGenres(game));
     setDraftDescription(game.description ?? "");
     setDraftMods(game.moderators ?? []);
     setDraftScreenshots(game.screenshots ?? []);
@@ -181,7 +188,8 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
     setSaving(true);
     const updates = {
       sub_address: normalizeSubAddress(draftSub),
-      genre: draftGenre.trim() || null,
+      genres: draftGenres,
+      genre: draftGenres[0] ?? null,
       description: draftDescription.trim() || null,
       moderators: draftMods,
       screenshots: draftScreenshots,
@@ -223,7 +231,7 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
       if (!q) return true;
       return (
         g.game_name.toLowerCase().includes(q) ||
-        g.genre?.toLowerCase().includes(q) ||
+        gameGenres(g).some(genre => genre.toLowerCase().includes(q)) ||
         g.sub_address?.toLowerCase().includes(q)
       );
     });
@@ -278,10 +286,10 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
     const counts: Record<string, number> = {};
     GENRES.forEach(g => (counts[g] = 0));
     for (const game of games) {
-      if (!game.genre) continue;
-      // Normalize case-insensitively against known genres
-      const match = GENRES.find(g => g.toLowerCase() === game.genre!.toLowerCase());
-      if (match) counts[match] += 1;
+      for (const raw of gameGenres(game)) {
+        const match = GENRES.find(g => g.toLowerCase() === raw.toLowerCase());
+        if (match) counts[match] += 1;
+      }
     }
     return counts;
   }, [games]);
@@ -360,17 +368,18 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
     const topGames = [...perGame].sort((a, b) => b.delta - a.delta).slice(0, 10);
     const decliningGames = [...perGame].filter(x => x.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 10);
 
-    // Aggregate per genre using known GENRES (case-insensitive)
+    // Aggregate per genre using known GENRES (case-insensitive). A game counts
+    // toward every genre it belongs to.
     const genreAgg = new Map<string, { curr: number; prev: number }>();
     for (const row of perGame) {
-      const raw = row.game.genre;
-      if (!raw) continue;
-      const matched = GENRES.find(g => g.toLowerCase() === raw.toLowerCase());
-      if (!matched) continue;
-      const acc = genreAgg.get(matched) ?? { curr: 0, prev: 0 };
-      acc.curr += row.curr;
-      acc.prev += row.prev;
-      genreAgg.set(matched, acc);
+      for (const raw of gameGenres(row.game)) {
+        const matched = GENRES.find(g => g.toLowerCase() === raw.toLowerCase());
+        if (!matched) continue;
+        const acc = genreAgg.get(matched) ?? { curr: 0, prev: 0 };
+        acc.curr += row.curr;
+        acc.prev += row.prev;
+        genreAgg.set(matched, acc);
+      }
     }
     const topGenres = [...genreAgg.entries()]
       .map(([genre, { curr, prev }]) => ({
@@ -954,7 +963,17 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm">{game.genre ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                        <TableCell className="text-sm">
+                          {gameGenres(game).length ? (
+                            <div className="flex flex-wrap gap-1 max-w-[180px]">
+                              {gameGenres(game).map(gen => (
+                                <Badge key={gen} variant="outline" className="text-[10px] px-1.5 py-0">{gen}</Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">{numberFmt(latest?.users)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{numberFmt(latest?.contributions)}</TableCell>
                         <TableCell className="text-sm">{dateFmt(game.created_date)}</TableCell>
@@ -1003,13 +1022,28 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="genre">Genre</Label>
-              <Input
-                id="genre"
-                placeholder="e.g. Puzzle, Strategy"
-                value={draftGenre}
-                onChange={e => setDraftGenre(e.target.value)}
-              />
+              <Label>Genres</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {GENRES.map(gen => {
+                  const active = draftGenres.includes(gen);
+                  return (
+                    <button
+                      key={gen}
+                      type="button"
+                      onClick={() =>
+                        setDraftGenres(active ? draftGenres.filter(x => x !== gen) : [...draftGenres, gen])
+                      }
+                      className={`rounded-full px-3 py-1 text-xs transition border ${
+                        active
+                          ? "bg-primary text-primary-foreground border-transparent"
+                          : "bg-muted text-muted-foreground border-transparent hover:bg-muted/70"
+                      }`}
+                    >
+                      {gen}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Moderators</Label>

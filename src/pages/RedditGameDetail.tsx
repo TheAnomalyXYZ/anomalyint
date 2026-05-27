@@ -22,6 +22,7 @@ interface TrackedGame {
   last_update: string | null;
   listings: string[];
   genre: string | null;
+  genres: string[];
   moderators: string[];
   screenshots: string[];
   screenshots_full: string[];
@@ -113,7 +114,9 @@ export function RedditGameDetail({ basePath = "/reddit-games" }: RedditGameDetai
                 {l}
               </Badge>
             ))}
-            {game.genre && <Badge variant="outline">{game.genre}</Badge>}
+            {(game.genres?.length ? game.genres : game.genre ? [game.genre] : []).map(gen => (
+              <Badge key={gen} variant="outline">{gen}</Badge>
+            ))}
           </div>
         </div>
         {game.sub_address && (
