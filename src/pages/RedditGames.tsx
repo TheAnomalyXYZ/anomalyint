@@ -12,7 +12,7 @@ import { Label } from "../components/ui/label";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { LineChart, Line, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { LineChart, Line, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, LabelList } from "recharts";
 
 interface WeeklyMetric {
   measured_on: string;
@@ -358,6 +358,7 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
       .filter((x): x is { game: TrackedGame; curr: number; prev: number; delta: number; pct: number | null } => !!x);
     // Top growing games: sort by absolute delta (positive first), tie-break by pct
     const topGames = [...perGame].sort((a, b) => b.delta - a.delta).slice(0, 10);
+    const decliningGames = [...perGame].filter(x => x.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 10);
 
     // Aggregate per genre using known GENRES (case-insensitive)
     const genreAgg = new Map<string, { curr: number; prev: number }>();
@@ -381,7 +382,7 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
       }))
       .sort((a, b) => b.delta - a.delta);
 
-    return { topGames, topGenres };
+    return { topGames, decliningGames, topGenres };
   }, [games]);
 
   const sortedTopGenres = useMemo(() => {
@@ -572,12 +573,11 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 min-w-0">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Trophy className="h-4 w-4" /> Top Games by Weekly Users
-            </CardTitle>
+      <Card className="min-w-0">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Trophy className="h-4 w-4" /> Top Games by Weekly Users
+          </CardTitle>
             <CardDescription>Most active subreddits this week.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -595,7 +595,7 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
                     screenshot: firstScreenshotByGameId.get(t.game.id) ?? null,
                   }))}
                   layout="vertical"
-                  margin={{ left: 12, right: 24, top: 8, bottom: 0 }}
+                  margin={{ left: 12, right: 56, top: 8, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis type="number" className="text-xs" tickFormatter={(v: number) => compactFmt(v)} />
@@ -621,13 +621,21 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
                     radius={[0, 4, 4, 0]}
                     style={{ cursor: "pointer" }}
                     onClick={(d: any) => d?.gameId && navigate(`${basePath}/${d.gameId}`)}
-                  />
+                  >
+                    <LabelList
+                      dataKey="users"
+                      position="right"
+                      className="fill-foreground text-xs"
+                      formatter={(v: number) => compactFmt(v)}
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -637,11 +645,63 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
           </CardHeader>
           <CardContent>
             {growth.topGames.length === 0 ? (
-              <div className="text-sm text-muted-foreground">Need 2+ weeks of data per game.</div>
+              <div className="text-sm text-muted-foreground">Need 2+ readings per game.</div>
             ) : (
               <ul className="space-y-2">
                 {growth.topGames.map(({ game, curr, delta, pct }) => {
                   const positive = delta >= 0;
+                  const shot = firstScreenshotByGameId.get(game.id);
+                  const featured = game.listings?.includes("featured");
+                  const NameLink = (
+                    <Link to={`${basePath}/${game.id}`} className="font-medium truncate hover:text-primary hover:underline">
+                      {game.game_name}
+                    </Link>
+                  );
+                  return (
+                    <li key={game.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="flex items-center gap-2 min-w-0">
+                        {shot ? (
+                          <HoverCard openDelay={150} closeDelay={50}>
+                            <HoverCardTrigger asChild>{NameLink}</HoverCardTrigger>
+                            <HoverCardContent side="left" className="w-64 p-2">
+                              <img src={shot} alt={game.game_name} className="w-full h-40 object-cover rounded" loading="lazy" />
+                            </HoverCardContent>
+                          </HoverCard>
+                        ) : NameLink}
+                        {featured && (
+                          <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-transparent shrink-0 text-[10px] px-1.5 py-0">
+                            Featured
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono text-xs text-muted-foreground">{compactFmt(curr)}</span>
+                        <span className={`inline-flex items-center gap-0.5 font-mono text-xs ${positive ? "text-green-600" : "text-red-600"}`}>
+                          {positive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                          {pct == null ? `${positive ? "+" : ""}${compactFmt(delta)}` : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Rocket className="h-4 w-4 rotate-180" /> Top Declining Games
+            </CardTitle>
+            <CardDescription>Day-over-day change.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {growth.decliningGames.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No declines vs the previous reading.</div>
+            ) : (
+              <ul className="space-y-2">
+                {growth.decliningGames.map(({ game, curr, delta, pct }) => {
                   const shot = firstScreenshotByGameId.get(game.id);
                   const NameLink = (
                     <Link to={`${basePath}/${game.id}`} className="font-medium truncate hover:text-primary hover:underline">
@@ -660,9 +720,9 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
                       ) : NameLink}
                       <span className="flex items-center gap-2 shrink-0">
                         <span className="font-mono text-xs text-muted-foreground">{compactFmt(curr)}</span>
-                        <span className={`inline-flex items-center gap-0.5 font-mono text-xs ${positive ? "text-green-600" : "text-red-600"}`}>
-                          {positive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                          {pct == null ? `${positive ? "+" : ""}${compactFmt(delta)}` : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
+                        <span className="inline-flex items-center gap-0.5 font-mono text-xs text-red-600">
+                          <ArrowDown className="h-3 w-3" />
+                          {pct == null ? compactFmt(delta) : `${pct.toFixed(1)}%`}
                         </span>
                       </span>
                     </li>

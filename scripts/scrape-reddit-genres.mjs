@@ -74,21 +74,32 @@ const snapshotUntil = (test, attempts = 6) => {
   return snap;
 };
 
-// Navigate to the launchpad and click the Browse tab. Returns the snapshot
-// showing the genre chips.
+// Navigate to the launchpad and click the Browse tab. Returns
+// { snap, baselineLabels } where baselineLabels are the button labels present
+// BEFORE Browse was clicked (page chrome, nav, Play tiles) — used to isolate
+// genre chips, which only render after clicking Browse.
 const openBrowse = () => {
   abSafe(`eval "window.location.href='${LAUNCHPAD_URL}'"`, { timeout: 15000 });
   jitterWait(4500);
   try { ab(`wait --text "Games Launchpad" --timeout 25000`); } catch {}
   jitterWait(800);
 
-  let snap = snapshotUntil((s) => findButtonRef(s, "Browse"));
-  const browseRef = findButtonRef(snap, "Browse");
+  const preSnap = snapshotUntil((s) => findButtonRef(s, "Browse"));
+  const baselineLabels = new Set(extractButtonLabels(preSnap));
+
+  const browseRef = findButtonRef(preSnap, "Browse");
   if (!browseRef) throw new Error("Could not find 'Browse' tab button.");
   ab(`click ${browseRef}`);
   jitterWait(1800);
-  return ab(`snapshot -i -c`);
+  return { snap: ab(`snapshot -i -c`), baselineLabels };
 };
+
+// Genre chips = buttons that appear only after clicking Browse, are not
+// "Play …" tiles, and aren't the Browse tab itself.
+const discoverGenres = (snap, baselineLabels) =>
+  extractButtonLabels(snap).filter(
+    (l) => !baselineLabels.has(l) && !l.startsWith("Play ") && !NON_GENRE.has(l)
+  );
 
 const run = async () => {
   mkdirSync(OUT_DIR, { recursive: true });
@@ -97,12 +108,9 @@ const run = async () => {
   console.log(abSafe(`open --headed --profile default`, { timeout: 25000 }));
 
   console.log("Opening Browse tab...");
-  let snap = openBrowse();
+  let { snap, baselineLabels } = openBrowse();
 
-  // Discover genre chips: buttons that aren't nav controls or "Play …" tiles.
-  const genres = extractButtonLabels(snap).filter(
-    (l) => !NON_GENRE.has(l) && !l.startsWith("Play ")
-  );
+  const genres = discoverGenres(snap, baselineLabels);
   console.log(`Found ${genres.length} genres: ${genres.join(", ")}`);
 
   const byGenre = {};
@@ -113,7 +121,7 @@ const run = async () => {
     // Ensure we're on the Browse view, then click the genre chip.
     let genreRef = findButtonRef(snap, genre);
     if (!genreRef) {
-      snap = openBrowse();
+      ({ snap, baselineLabels } = openBrowse());
       genreRef = findButtonRef(snap, genre);
     }
     if (!genreRef) {
@@ -137,7 +145,7 @@ const run = async () => {
       snap = ab(`snapshot -i -c`);
     } else {
       // Fallback: reload Browse from scratch.
-      snap = openBrowse();
+      ({ snap, baselineLabels } = openBrowse());
     }
   }
 
