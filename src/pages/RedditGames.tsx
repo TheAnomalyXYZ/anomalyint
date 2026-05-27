@@ -74,19 +74,11 @@ function latestMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
   return [...metrics].sort((a, b) => (a.measured_on < b.measured_on ? 1 : -1))[0];
 }
 
-// For week-over-week, find the reading whose date is at least 6 days before the latest.
-// Falls back to the previous reading if no older one exists.
-function previousWeekMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
+// Day-over-day: the reading immediately before the latest one.
+function previousMetric(metrics: WeeklyMetric[]): WeeklyMetric | null {
   if (!metrics || metrics.length < 2) return null;
   const sorted = [...metrics].sort((a, b) => (a.measured_on < b.measured_on ? 1 : -1));
-  const latest = sorted[0];
-  const latestDate = new Date(latest.measured_on);
-  const cutoff = new Date(latestDate);
-  cutoff.setUTCDate(cutoff.getUTCDate() - 6);
-  for (let i = 1; i < sorted.length; i++) {
-    if (new Date(sorted[i].measured_on) <= cutoff) return sorted[i];
-  }
-  return null;
+  return sorted[1] ?? null;
 }
 
 interface RedditGamesProps {
@@ -352,12 +344,12 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
   }, [games]);
 
   const growth = useMemo(() => {
-    // For each game, compare latest reading vs the reading from ~7 days earlier.
+    // For each game, compare the latest reading vs the immediately-preceding reading (day-over-day).
     const perGame = games
       .map(g => {
         const readings = (g.tracked_game_weekly_metrics ?? []).filter(m => m.users != null);
         const curr = latestMetric(readings);
-        const prev = previousWeekMetric(readings);
+        const prev = previousMetric(readings);
         if (!curr || !prev) return null;
         const delta = curr.users! - prev.users!;
         const pct = prev.users! === 0 ? null : (delta / prev.users!) * 100;
@@ -641,7 +633,7 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
             <CardTitle className="text-base flex items-center gap-2">
               <Rocket className="h-4 w-4" /> Top Growing Games
             </CardTitle>
-            <CardDescription>Week-over-week change.</CardDescription>
+            <CardDescription>Day-over-day change.</CardDescription>
           </CardHeader>
           <CardContent>
             {growth.topGames.length === 0 ? (
@@ -687,7 +679,7 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
           <CardTitle className="text-base flex items-center gap-2">
             <Rocket className="h-4 w-4" /> Top Growing Genres
           </CardTitle>
-          <CardDescription>Aggregate week-over-week growth by genre (requires games to have a matching genre assigned).</CardDescription>
+          <CardDescription>Aggregate day-over-day growth by genre (requires games to have a matching genre assigned).</CardDescription>
         </CardHeader>
         <CardContent>
           {growth.topGenres.length === 0 ? (
@@ -704,12 +696,12 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
                     </TableHead>
                     <TableHead className="text-right">
                       <button onClick={() => toggleGenreSort("curr")} className="inline-flex items-center hover:text-foreground">
-                        This Week <GenreSortIcon k="curr" />
+                        Today <GenreSortIcon k="curr" />
                       </button>
                     </TableHead>
                     <TableHead className="text-right">
                       <button onClick={() => toggleGenreSort("prev")} className="inline-flex items-center hover:text-foreground">
-                        Last Week <GenreSortIcon k="prev" />
+                        Yesterday <GenreSortIcon k="prev" />
                       </button>
                     </TableHead>
                     <TableHead className="text-right">
