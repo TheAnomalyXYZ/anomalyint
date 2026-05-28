@@ -41,13 +41,14 @@ const jsonPath = args.find(a => !a.startsWith('--'));
 const overwrite = args.includes('--overwrite');
 const dryRun = args.includes('--dry-run');
 const createMissing = args.includes('--create-missing');
+const skipListings = args.includes('--no-listings');
 const dateFlag = (() => {
   const i = args.indexOf('--date');
   return i >= 0 ? args[i + 1] : null;
 })();
 
 if (!jsonPath) {
-  console.error('Usage: node scripts/ingest-games.mjs <scraped.json> [--date YYYY-MM-DD] [--overwrite] [--create-missing] [--dry-run]');
+  console.error('Usage: node scripts/ingest-games.mjs <scraped.json> [--date YYYY-MM-DD] [--overwrite] [--create-missing] [--no-listings] [--dry-run]');
   process.exit(1);
 }
 
@@ -64,6 +65,15 @@ const asDate = (s) => {
   return d.toISOString().slice(0, 10);
 };
 const measuredOn = asDate(dateFlag ?? data.scrapedAt);
+
+// Build launchpad sets if the scrape includes them (reddit-full format).
+// We'll use these to reconcile listings: each game's new listings become
+// (current launchpad tags) ∪ (any existing tag that isn't a launchpad tag).
+// That preserves manually-curated tags like "featured".
+const SCRAPE_LISTING_TAGS = new Set(['popular', 'new']);
+const lpPopular = new Set(data.launchpad?.popular?.games ?? []);
+const lpNew = new Set(data.launchpad?.new?.games ?? []);
+const hasLaunchpad = !skipListings && (lpPopular.size > 0 || lpNew.size > 0);
 
 const num = (v) => {
   if (v == null) return null;
@@ -96,7 +106,7 @@ for (const g of games) {
   if (id) {
     const { data: row } = await supabase
       .from('tracked_games')
-      .select('description, created_date, sub_address, genre, genres')
+      .select('description, created_date, sub_address, genre, genres, listings')
       .eq('id', id).maybeSingle();
     existing = row;
   }
@@ -113,7 +123,9 @@ for (const g of games) {
       skips.push({ game: '(unnamed)', reason: 'cannot create without game_name' });
       continue;
     }
+    const nowIso = new Date().toISOString();
     const insertRow = {
+      id: crypto.randomUUID(),
       game_name: g.game_name,
       sub_address: g.sub_address ?? null,
       genre: g.genre ?? null,
@@ -121,6 +133,9 @@ for (const g of games) {
       description: g.description ?? null,
       created_date: g.createdIso ? g.createdIso.slice(0, 10) : null,
       listings: Array.isArray(g.listings) ? g.listings : [],
+      created_at: nowIso,
+      updated_at: nowIso,
+      last_update: nowIso,
     };
     if (dryRun) {
       console.log(`+ create ${g.game_name} (listings: ${insertRow.listings.join(',') || 'none'})`);
@@ -157,6 +172,21 @@ for (const g of games) {
     patch.genres = scrapedGenres;
   }
 
+  // listings[] — reconcile against the launchpad. Curation tags (e.g. "featured")
+  // are preserved by unioning them with whatever the launchpad currently shows.
+  if (hasLaunchpad && g.game_name) {
+    const launchpadTags = [];
+    if (lpPopular.has(g.game_name)) launchpadTags.push('popular');
+    if (lpNew.has(g.game_name)) launchpadTags.push('new');
+    const existingListings = Array.isArray(existing.listings) ? existing.listings : [];
+    const curationTags = existingListings.filter(t => !SCRAPE_LISTING_TAGS.has(t));
+    const target = [...new Set([...launchpadTags, ...curationTags])];
+    const same =
+      target.length === existingListings.length &&
+      target.every(t => existingListings.includes(t));
+    if (!same) patch.listings = target;
+  }
+
   if (Object.keys(patch).length) {
     patch.last_update = new Date().toISOString();
     if (dryRun) {
@@ -171,7 +201,7 @@ for (const g of games) {
   const users = num(g.weeklyActiveUsers ?? g.users);
   const contributions = num(g.weeklyContributions ?? g.contributions);
   if (users != null || contributions != null) {
-    metricRows.push({ tracked_game_id: id, measured_on: measuredOn, users, contributions });
+    metricRows.push({ id: crypto.randomUUID(), tracked_game_id: id, measured_on: measuredOn, users, contributions });
   }
 }
 

@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { ArrowLeft, ExternalLink, Users, MessageSquare, Calendar, RefreshCw, Gamepad2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Users, MessageSquare, Calendar, RefreshCw, Gamepad2, History } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 
@@ -38,6 +38,41 @@ const compactFmt = (n: number) =>
 const dateFmt = (iso: string | null) =>
   !iso ? "—" : new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
 
+const dateTimeFmt = (iso: string) =>
+  new Date(iso).toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "medium", timeStyle: "short" });
+
+interface GameEvent {
+  id: string;
+  field: string;
+  old_value: unknown;
+  new_value: unknown;
+  changed_at: string;
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  created: "Game added",
+  listings: "Listings",
+  genres: "Genres",
+  genre: "Primary genre",
+  sub_address: "Subreddit",
+  description: "Description",
+  created_date: "Created date",
+  moderators: "Moderators",
+};
+
+const asArray = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+
+// Returns { added, removed } for array fields, else null.
+function arrayDiff(oldV: unknown, newV: unknown) {
+  if (!Array.isArray(oldV) && !Array.isArray(newV)) return null;
+  const o = new Set(asArray(oldV));
+  const n = new Set(asArray(newV));
+  return {
+    added: [...n].filter(x => !o.has(x)),
+    removed: [...o].filter(x => !n.has(x)),
+  };
+}
+
 interface RedditGameDetailProps {
   basePath?: string;
 }
@@ -45,6 +80,7 @@ interface RedditGameDetailProps {
 export function RedditGameDetail({ basePath = "/reddit-games" }: RedditGameDetailProps = {}) {
   const { id } = useParams<{ id: string }>();
   const [game, setGame] = useState<TrackedGame | null>(null);
+  const [events, setEvents] = useState<GameEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
@@ -52,17 +88,26 @@ export function RedditGameDetail({ basePath = "/reddit-games" }: RedditGameDetai
     if (!id) return;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("tracked_games")
-        .select("*, tracked_game_weekly_metrics(measured_on, users, contributions)")
-        .eq("id", id)
-        .single();
-      if (error) {
-        console.error("Failed to load game:", error);
+      const [gameRes, eventsRes] = await Promise.all([
+        supabase
+          .from("tracked_games")
+          .select("*, tracked_game_weekly_metrics(measured_on, users, contributions)")
+          .eq("id", id)
+          .single(),
+        supabase
+          .from("tracked_game_events")
+          .select("id, field, old_value, new_value, changed_at")
+          .eq("tracked_game_id", id)
+          .order("changed_at", { ascending: false })
+          .limit(100),
+      ]);
+      if (gameRes.error) {
+        console.error("Failed to load game:", gameRes.error);
         setGame(null);
       } else {
-        setGame(data as TrackedGame);
+        setGame(gameRes.data as TrackedGame);
       }
+      setEvents((eventsRes.data ?? []) as GameEvent[]);
       setLoading(false);
     })();
   }, [id]);
@@ -250,6 +295,77 @@ export function RedditGameDetail({ basePath = "/reddit-games" }: RedditGameDetai
                 <Line type="monotone" dataKey="contributions" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <History className="h-4 w-4" /> Change Log
+          </CardTitle>
+          <CardDescription>Listing, genre, and metadata changes over time.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No changes recorded yet.</div>
+          ) : (
+            <ul className="space-y-3">
+              {events.map(ev => {
+                const label = FIELD_LABELS[ev.field] ?? ev.field;
+                if (ev.field === "created") {
+                  const payload = (ev.new_value ?? {}) as { listings?: string[] };
+                  const initialListings = Array.isArray(payload.listings) ? payload.listings : [];
+                  return (
+                    <li key={ev.id} className="flex gap-3 text-sm">
+                      <div className="w-1 rounded bg-indigo-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{label}</span>
+                          {initialListings.length > 0 && (
+                            <span className="flex flex-wrap gap-1">
+                              {initialListings.map(l => (
+                                <Badge key={l} variant="secondary" className="text-[10px] px-1.5 py-0">{l}</Badge>
+                              ))}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{dateTimeFmt(ev.changed_at)}</div>
+                      </div>
+                    </li>
+                  );
+                }
+                const diff = arrayDiff(ev.old_value, ev.new_value);
+                return (
+                  <li key={ev.id} className="flex gap-3 text-sm">
+                    <div className="w-1 rounded bg-border shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{label}</span>
+                        {diff ? (
+                          <span className="flex flex-wrap gap-1">
+                            {diff.added.map(x => (
+                              <Badge key={`a-${x}`} className="bg-green-600 hover:bg-green-600 text-white border-transparent text-[10px] px-1.5 py-0">+{x}</Badge>
+                            ))}
+                            {diff.removed.map(x => (
+                              <Badge key={`r-${x}`} variant="outline" className="text-[10px] px-1.5 py-0 line-through text-red-600 border-red-300">{x}</Badge>
+                            ))}
+                            {diff.added.length === 0 && diff.removed.length === 0 && (
+                              <span className="text-muted-foreground text-xs">reordered</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground truncate">
+                            {String(ev.old_value ?? "—")} → {String(ev.new_value ?? "—")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{dateTimeFmt(ev.changed_at)}</div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </CardContent>
       </Card>

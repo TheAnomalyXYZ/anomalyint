@@ -567,8 +567,23 @@ model tracked_games {
   created_at    DateTime                       @default(now())
   updated_at    DateTime                       @updatedAt
   weekly_metrics tracked_game_weekly_metrics[]
+  events         tracked_game_events[]
 
   @@index([game_name])
+}
+
+model tracked_game_events {
+  id              String        @id @default(uuid()) @db.Uuid
+  tracked_game_id String        @db.Uuid
+  field           String
+  old_value       Json?
+  new_value       Json?
+  changed_at      DateTime      @default(now())
+  tracked_games   tracked_games @relation(fields: [tracked_game_id], references: [id], onDelete: Cascade)
+
+  @@index([tracked_game_id])
+  @@index([changed_at])
+  @@index([field])
 }
 
 model tracked_game_weekly_metrics {

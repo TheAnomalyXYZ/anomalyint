@@ -179,14 +179,55 @@ node scripts/upload-game-screenshots.mjs reddit-data-logs/games-combined-with-sc
 
 ---
 
-## Running the scrapers
+## Daily run — recommended workflow
+
+This is the end-to-end process used to keep the API and dashboard fresh. Run it once per day; it diffs the Launchpad, captures weekly metrics + metadata for every game, screenshots newly listed games, and pushes everything to Supabase + R2.
+
+### 1. Scrape
 
 ```bash
-node scripts/scrape-reddit-games.mjs
-node scripts/scrape-reddit-combined-with-screenshot-new.mjs
+node scripts/scrape-reddit-full.mjs
 ```
 
-Both launch a visible Chrome window and close the session when done. If a run leaves a stray browser, clear it with `agent-browser close --all`.
+In one pass this:
+- Reads the Launchpad **Popular** and **New** tabs.
+- Diffs against the API → `diff.newGames` (in Launchpad but not yet tracked) and `diff.listingChanges` (popular/new tag changed).
+- Resolves a `sub_address` for every brand-new game by clicking its tile and capturing the landing URL.
+- Visits every resolvable subreddit and grabs weekly active-users, weekly contributions, created date, and description.
+- Takes a cropped tile screenshot for each `isNew` game.
+- Writes `reddit-data-logs/reddit-full-<ts>.json` and `reddit-data-logs/reddit-full-latest.json`.
+
+### 2. Ingest metrics + metadata
+
+```bash
+node scripts/ingest-games.mjs reddit-data-logs/reddit-full-latest.json --dry-run
+node scripts/ingest-games.mjs reddit-data-logs/reddit-full-latest.json --create-missing
+```
+
+`--dry-run` first to preview. Then for real with `--create-missing` so any newly discovered games (e.g. Slingblade / Rock Bottom / Clash Knight) get inserted into `tracked_games` rather than skipped. Existing games' metadata is fill-only (won't clobber non-null fields); add `--overwrite` if you do want to replace them.
+
+### 3. Upload screenshots for the newly listed games
+
+```bash
+node scripts/upload-game-screenshots.mjs reddit-data-logs/reddit-full-latest.json
+```
+
+This script only acts on records that have a `screenshot` object — which (in the `scrape-reddit-full` JSON) means the newly listed games only. Every other game logs `! skip … missing id or screenshot`, which is expected.
+
+> **Gotcha — id backfill for new games.** `scrape-reddit-full.mjs` records `id: null` for games not yet in the API. Ingest creates DB rows and gives them UUIDs, but the JSON on disk still has `null`. The upload script then skips them with "missing id or screenshot". If that happens, fetch the new UUIDs from Supabase by `game_name` and patch the JSON before re-running the upload. The deployed `/api/reddit-games` is too slow/cached for this — go straight to Supabase.
+
+### Other scrapers
+
+Use these for one-off needs; they're not part of the daily run:
+
+```bash
+node scripts/scrape-reddit-games.mjs                          # Launchpad name lists only
+node scripts/scrape-reddit-combined-with-screenshot-new.mjs   # combined scrape for all new-tagged games
+node scripts/scrape-reddit-genres.mjs                         # Browse-tab genre → games map
+node scripts/scrape-new-tab-urls.mjs                          # subreddit URLs for New-tab tiles
+```
+
+All scrapers launch a visible Chrome window and close the session when done. If a run leaves a stray browser, clear it with `agent-browser close --all`.
 
 ## Notes & gotchas
 
