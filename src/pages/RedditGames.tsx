@@ -64,6 +64,16 @@ const compactFmt = (n: number) =>
 const dateFmt = (iso: string | null) =>
   !iso ? "—" : new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
 
+const relativeFmt = (iso: string) => {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? "" : "s"} ago`;
+  return `${Math.floor(days / 30)} month${Math.floor(days / 30) === 1 ? "" : "s"} ago`;
+};
+
 function normalizeSubAddress(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
@@ -92,9 +102,15 @@ interface RedditGamesProps {
   basePath?: string;
 }
 
+interface CreatedEvent {
+  tracked_game_id: string;
+  changed_at: string;
+}
+
 export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {}) {
   const navigate = useNavigate();
   const [games, setGames] = useState<TrackedGame[]>([]);
+  const [createdEvents, setCreatedEvents] = useState<CreatedEvent[]>([]);
   const [genreSortKey, setGenreSortKey] = useState<GenreSortKey>("delta");
   const [genreSortDir, setGenreSortDir] = useState<SortDir>("desc");
   const [loading, setLoading] = useState(true);
@@ -210,10 +226,20 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("tracked_games")
-        .select("*, tracked_game_weekly_metrics(measured_on, users, contributions)")
-        .order("game_name", { ascending: true });
+      const [gamesRes, eventsRes] = await Promise.all([
+        supabase
+          .from("tracked_games")
+          .select("*, tracked_game_weekly_metrics(measured_on, users, contributions)")
+          .order("game_name", { ascending: true }),
+        supabase
+          .from("tracked_game_events")
+          .select("tracked_game_id, changed_at")
+          .eq("field", "created")
+          .order("changed_at", { ascending: false })
+          .limit(20),
+      ]);
+      setCreatedEvents((eventsRes.data ?? []) as CreatedEvent[]);
+      const { data, error } = gamesRes;
       if (error) {
         console.error("Failed to load tracked games:", error);
         setGames([]);
@@ -342,6 +368,18 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
     }
     return items;
   }, [games]);
+
+  const newlyAdded = useMemo(() => {
+    if (!createdEvents.length || !games.length) return [];
+    const byId = new Map(games.map(g => [g.id, g]));
+    return createdEvents
+      .map(ev => {
+        const game = byId.get(ev.tracked_game_id);
+        return game ? { game, createdAt: ev.changed_at } : null;
+      })
+      .filter((x): x is { game: TrackedGame; createdAt: string } => !!x)
+      .slice(0, 10);
+  }, [createdEvents, games]);
 
   const insights = useMemo(() => {
     if (games.length === 0) return [];
@@ -658,6 +696,42 @@ export function RedditGames({ basePath = "/reddit-games" }: RedditGamesProps = {
                   </div>
                 </Link>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {newlyAdded.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Newly Added Games</CardTitle>
+            <CardDescription>From the change log — games created most recently in our tracker.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {newlyAdded.map(({ game, createdAt }) => {
+                const shot = game.screenshots?.[0];
+                return (
+                  <Link
+                    key={game.id}
+                    to={`${basePath}/${game.id}`}
+                    className="relative block overflow-hidden rounded-md border bg-background hover:ring-2 hover:ring-primary transition"
+                    title={game.game_name}
+                  >
+                    {shot ? (
+                      <img src={shot} alt={game.game_name} className="w-full h-32 object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-32 bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                        no screenshot yet
+                      </div>
+                    )}
+                    <div className="p-2 bg-background">
+                      <div className="text-sm font-medium line-clamp-1">{game.game_name}</div>
+                      <div className="text-[10px] text-muted-foreground">added {relativeFmt(createdAt)}</div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
